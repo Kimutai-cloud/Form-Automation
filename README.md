@@ -138,7 +138,7 @@ https://fomr.io/s/vjgrpZ9Out
 ## 📋 Example Output
 ### Screenshot
 
-![alt text](https://github.com/Kimutai-cloud/Form-Automation/blob/main/screenshots/Example1.png)
+<img width="1816" height="715" alt="Image" src="https://github.com/user-attachments/assets/bb16ed30-f2f6-4362-aec1-07379bd79d26" />
 ![alt text](https://github.com/Kimutai-cloud/Form-Automation/blob/main/screenshots/Example2.png)
 ![alt text](https://github.com/Kimutai-cloud/Form-Automation/blob/main/screenshots/Example3.png)
 
