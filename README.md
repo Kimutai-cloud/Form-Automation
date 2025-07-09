@@ -136,11 +136,11 @@ https://fomr.io/s/vjgrpZ9Out
 ---
 
 ## 📋 Example Output
-### Screenshot
+### Screenshots
 
-![alt text](https://github.com/Kimutai-cloud/Form-Automation/blob/main/screenshots/Example1.png)
-![alt text](https://github.com/Kimutai-cloud/Form-Automation/blob/main/screenshots/Example2.png)
-![alt text](https://github.com/Kimutai-cloud/Form-Automation/blob/main/screenshots/Example3.png)
+<img width="1816" height="715" alt="Image" src="https://github.com/user-attachments/assets/bb16ed30-f2f6-4362-aec1-07379bd79d26" />
+<img width="1734" height="554" alt="Image" src="https://github.com/user-attachments/assets/be4446ca-fd5d-43ec-b4a4-ec5d42eae16a" />
+<img width="1640" height="660" alt="Image" src="https://github.com/user-attachments/assets/6c04c2e9-7b31-4826-af9e-34040b4f4f0e" />
 
 ---
 
