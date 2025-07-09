@@ -1,7 +1,6 @@
 # AI Form Automation Tool
 
-A conversational AI-powered form automation tool that uses Puppeteer for web scraping and OpenAI for generating natural language questions. Built with clean architecture principles using TypeScript.
-
+A conversational AI-powered form automation tool that uses Puppeteer for web scraping and OpenAI for generating natural language questions. 
 ---
 
 ## 🚀 Features
@@ -11,7 +10,6 @@ A conversational AI-powered form automation tool that uses Puppeteer for web scr
 - 🔧 **Configurable Tone**: Choose between casual and professional question styles  
 - ✅ **Input Validation**: Validates user input based on field requirements and common patterns  
 - 📊 **Comprehensive Logging**: Detailed logging with Winston for debugging and monitoring  
-- 🏗️ **Clean Architecture**: Well-structured code following clean architecture principles  
 - 💻 **Easy to Use**: Simple CLI interface for seamless interaction  
 
 ---
@@ -54,7 +52,7 @@ src/
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd form-automation
+   cd Form-Automation
    ```
 
 2. **Install dependencies**
@@ -64,7 +62,7 @@ src/
 
 3. **Set up environment variables**
    ```bash
-   cp .env.example .env
+   cp .env
    ```
 
    Edit `.env`:
@@ -83,18 +81,6 @@ src/
 ```bash
 npm start
 ```
-
-### Development Mode
-```bash
-npm run dev
-```
-
-### Build and Run
-```bash
-npm run build
-npm run start:prod
-```
-
 ---
 
 ## 🔧 Configuration Options
@@ -107,7 +93,17 @@ npm run start:prod
 | `FORM_TIMEOUT`     | Timeout for form operations (ms)                 | `30000`                             |
 | `HEADLESS_MODE`    | Run browser in headless mode                     | `false`                             |
 | `LOG_LEVEL`        | Logging level                                    | `info`                              |
-| `DEFAULT_FORM_URL` | Default form URL (e.g. Selenium demo form)       | *(optional)*                        |
+| `DEFAULT_FORM_URL` | Default form URL                                 | *(optional)*                        |
+
+### Form URL example
+```bash
+https://www.selenium.dev/selenium/web/web-form.html
+```
+OR
+
+```bash
+https://fomr.io/s/vjgrpZ9Out
+```
 
 ### Runtime Prompts
 
@@ -133,6 +129,7 @@ npm run start:prod
 - `<input>` (text, email, password, etc.)
 - `<textarea>`
 - `<select>`
+- `<radio>`
 - Required field validation
 - Email format validation
 
@@ -141,9 +138,9 @@ npm run start:prod
 ## 📋 Example Output
 ### Screenshot
 
-![Form Automation Example](./screenshots/Example1.png)
-![Form Automation Example](./screenshots/Example2.png)
-![Form Automation Example](./screenshots/Example3.png)
+![alt text](https://github.com/Kimutai-cloud/Form-Automation/blob/main/screenshots/Example1.png)
+![alt text](https://github.com/Kimutai-cloud/Form-Automation/blob/main/screenshots/Example2.png)
+![alt text](https://github.com/Kimutai-cloud/Form-Automation/blob/main/screenshots/Example3.png)
 
 ---
 
