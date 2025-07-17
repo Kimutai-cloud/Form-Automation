@@ -5,6 +5,7 @@
 
 export interface AIQuestionRequest {
   labelText: string;
+  fieldType?: 'input' | 'textarea' | 'select' | 'checkbox' | 'radio' | 'date' | 'email' | 'number' | 'tel';
   tone: 'casual' | 'professional';
   context?: string;
   placeholder?: string;

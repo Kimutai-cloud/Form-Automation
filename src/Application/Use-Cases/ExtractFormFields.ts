@@ -17,6 +17,7 @@ export interface ExtractFormFieldsResponse {
   fields: FormFieldEntity[];
   summary: Record<string, any>;
   success: boolean;
+  page?: any; 
   error?: string;
 }
 
@@ -28,16 +29,12 @@ export class ExtractFormFieldsUseCase {
 
   async execute(request: ExtractFormFieldsRequest): Promise<ExtractFormFieldsResponse> {
     try {
-      // Initialize browser
       await this.formRepository.initialize(request.headless ?? true);
       
-      // Navigate to form page
       await this.formRepository.navigateToPage(request.url, request.timeout);
       
-      // Extract form fields
       const rawFields = await this.formRepository.extractFormFields();
-      
-      // Validate and process fields
+    
       const validFields = this.formProcessingService.validateFormFields(rawFields);
       
       if (validFields.length === 0) {
@@ -49,7 +46,6 @@ export class ExtractFormFieldsUseCase {
         };
       }
       
-      // Generate summary
       const summary = this.formProcessingService.generateFieldSummary(validFields);
       
       return {

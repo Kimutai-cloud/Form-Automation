@@ -35,7 +35,6 @@ export class CollectUserInputUseCase {
         let userInput: string;
         let isValid = false;
         
-        // Keep asking until valid input is received
         while (!isValid) {
           userInput = await this.userInterface.askQuestion(question);
           const sanitizedInput = this.formProcessingService.sanitizeInput(userInput);

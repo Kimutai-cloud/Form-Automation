@@ -6,7 +6,7 @@
 export interface FormField {
   label: string;
   selector: string;
-  type: 'input' | 'textarea' | 'select';
+  type: 'input' | 'textarea' | 'select' | 'checkbox' | 'radio' | 'date' | 'email' | 'number' | 'tel';
   required: boolean;
   placeholder?: string;
 }
@@ -15,7 +15,7 @@ export class FormFieldEntity {
   constructor(
     public readonly label: string,
     public readonly selector: string,
-    public readonly type: 'input' | 'textarea' | 'select',
+    public readonly type: 'input' | 'textarea' | 'select' | 'checkbox' | 'radio' | 'date' | 'email' | 'number' | 'tel',
     public readonly required: boolean,
     public readonly placeholder?: string
   ) {}
