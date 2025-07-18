@@ -5,8 +5,14 @@
   */
 export interface FormField {
   label: string;
+  options?: string[]; 
+  minLength?: number;
+  maxLength?: number;
+  min?: number;
+  max?: number;
   selector: string;
-  type: 'input' | 'textarea' | 'select' | 'checkbox' | 'radio' | 'date' | 'email' | 'number' | 'tel';
+  type: 'input' | 'textarea' | 'select' | 'checkbox' | 'radio' | 'date' | 'email' | 'number' | 'tel' | 'file' | 'password' | 
+    'url' | 'color' | 'range' | 'time' | 'month' | 'week' | 'hidden' | 'datetime-local';
   required: boolean;
   placeholder?: string;
 }
@@ -15,7 +21,8 @@ export class FormFieldEntity {
   constructor(
     public readonly label: string,
     public readonly selector: string,
-    public readonly type: 'input' | 'textarea' | 'select' | 'checkbox' | 'radio' | 'date' | 'email' | 'number' | 'tel',
+    public readonly type: 'input' | 'textarea' | 'select' | 'checkbox' | 'radio' | 'date' | 'email' | 'number' | 'tel' | 'file' | 'password' | 
+    'url' | 'color' | 'range' | 'time' | 'month' | 'week' | 'hidden' | 'datetime-local',
     public readonly required: boolean,
     public readonly placeholder?: string
   ) {}

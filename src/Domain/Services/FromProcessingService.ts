@@ -40,14 +40,14 @@ export class FormProcessingService {
   ): Promise<boolean> {
     try {
       console.log("\n🎯 Starting Form Filling Process\n");
-      
+
       (this.consoleUI as any).setTotalQuestions?.(formFields.length);
-      
+
       const verifiedFields = await this.verifyAndUpdateSelectors(formFields);
       const allFields = await this.detectAllFormFields(verifiedFields);
       const userResponses = await this.collectInitialResponses(allFields);
       await this.fillFormFieldsEnhanced(allFields, userResponses);
-      
+
       return await this.submitWithEnhancedValidationHandling(userResponses);
     } catch (error) {
       if (error instanceof Error && error.message === "User cancelled") {
@@ -89,8 +89,7 @@ export class FormProcessingService {
           allFields.push(hiddenField);
         }
       }
-    } catch (error) {
-    }
+    } catch (error) {}
 
     return allFields;
   }
@@ -99,13 +98,13 @@ export class FormProcessingService {
     formFields: FormField[]
   ): Promise<Map<string, string>> {
     const responses = new Map<string, string>();
-    
+
     console.log("📝 Please answer the following questions:\n");
 
     for (const field of formFields) {
       try {
         const fieldName = this.getFieldName(field);
-        
+
         if (this.userResponseCache.has(fieldName)) {
           const cachedValue = this.userResponseCache.get(fieldName)!;
           responses.set(fieldName, cachedValue);
@@ -127,7 +126,7 @@ export class FormProcessingService {
 
         let answer: string;
         let isValid = false;
-        
+
         do {
           answer = await this.consoleUI.askQuestion(question);
 
@@ -137,9 +136,10 @@ export class FormProcessingService {
 
           answer = FormUtils.sanitizeInput(answer);
 
-          const validation = options.length > 0
-            ? this.validateDropdownAnswer(answer, options, field)
-            : this.validateFieldInput(field, answer);
+          const validation =
+            options.length > 0
+              ? this.validateDropdownAnswer(answer, options, field)
+              : this.validateFieldInput(field, answer);
 
           if (!validation.isValid) {
             console.log(`⚠️  ${validation.message}`);
@@ -148,12 +148,17 @@ export class FormProcessingService {
 
           if (options.length > 0) {
             const numAnswer = parseInt(answer);
-            if (!isNaN(numAnswer) && numAnswer >= 1 && numAnswer <= options.length) {
+            if (
+              !isNaN(numAnswer) &&
+              numAnswer >= 1 &&
+              numAnswer <= options.length
+            ) {
               answer = options[numAnswer - 1];
             } else {
               const matchingOption = options.find(
-                option => option.toLowerCase().includes(answer.toLowerCase()) ||
-                         answer.toLowerCase().includes(option.toLowerCase())
+                (option) =>
+                  option.toLowerCase().includes(answer.toLowerCase()) ||
+                  answer.toLowerCase().includes(option.toLowerCase())
               );
               if (matchingOption) {
                 answer = matchingOption;
@@ -166,15 +171,17 @@ export class FormProcessingService {
 
         responses.set(fieldName, answer);
         this.userResponseCache.set(fieldName, answer);
-        
+
         const displayName = this.getDisplayName(field);
         this.displayResponseCache.set(displayName, answer);
-        
       } catch (error) {
         if (error instanceof Error && error.message === "User cancelled") {
           throw error;
         }
-        console.error(`Error collecting response for field "${field.label}":`, error);
+        console.error(
+          `Error collecting response for field "${field.label}":`,
+          error
+        );
         throw error;
       }
     }
@@ -187,16 +194,17 @@ export class FormProcessingService {
     options: string[]
   ): Promise<string> {
     const baseQuestion = await this.generateRegularQuestion(field);
-    
+
     const displayOptions = options.slice(0, 10);
     const optionsText = displayOptions
       .map((option, index) => `  ${index + 1}. ${option}`)
       .join("\n");
-    
-    const moreOptionsText = options.length > 10 
-      ? `\n  ... and ${options.length - 10} more options` 
-      : '';
-    
+
+    const moreOptionsText =
+      options.length > 10
+        ? `\n  ... and ${options.length - 10} more options`
+        : "";
+
     return `${baseQuestion}\n${optionsText}${moreOptionsText}\n\n(Enter number or type option name)`;
   }
 
@@ -209,10 +217,11 @@ export class FormProcessingService {
       placeholder: field.placeholder,
     };
 
-    const aiResponse = await this.questionService.generateQuestion(questionRequest);
+    const aiResponse =
+      await this.questionService.generateQuestion(questionRequest);
     return aiResponse.success
       ? aiResponse.question
-      : `Please provide your ${field.label.toLowerCase().replace('*', '').trim()}`;
+      : `Please provide your ${field.label.toLowerCase().replace("*", "").trim()}`;
   }
 
   private async verifyAndUpdateSelectors(
@@ -255,7 +264,7 @@ export class FormProcessingService {
         await this.fillFieldEnhanced(field, value);
       }
     }
-    
+
     console.log("✅ Form filled successfully!");
   }
 
@@ -263,12 +272,12 @@ export class FormProcessingService {
     existingResponses: Map<string, string>
   ): Promise<boolean> {
     let attempt = 0;
-    
+
     console.log("\n🚀 Submitting the form...");
 
     while (attempt < this.maxRetries) {
       attempt++;
-      
+
       try {
         await this.submitForm();
         const isSubmitted = await this.waitForSubmissionResult();
@@ -278,16 +287,21 @@ export class FormProcessingService {
           return true;
         }
 
-        const validationErrors = await this.validationService.detectValidationErrors();
+        const validationErrors =
+          await this.validationService.detectValidationErrors();
 
         if (validationErrors.length === 0) {
           console.log("\n✅ Form appears to have been submitted.");
           return true;
         }
 
-        console.log(`\n⚠️  Found ${validationErrors.length} validation error(s):`);
+        console.log(
+          `\n⚠️  Found ${validationErrors.length} validation error(s):`
+        );
         for (const err of validationErrors) {
-          console.log(`   • ${err.fieldLabel || err.fieldName}: ${err.errorMessage}`);
+          console.log(
+            `   • ${err.fieldLabel || err.fieldName}: ${err.errorMessage}`
+          );
         }
 
         if (attempt < this.maxRetries) {
@@ -322,12 +336,14 @@ export class FormProcessingService {
 
     for (const error of validationErrors) {
       try {
-        const correctionResponse = await this.questionService.generateCorrectionQuestion(error);
+        const correctionResponse =
+          await this.questionService.generateCorrectionQuestion(error);
         const correctionQuestion = correctionResponse.success
           ? correctionResponse.question
           : `Please provide a value for "${error.fieldLabel || error.fieldName}"`;
 
-        const correctedValue = await this.consoleUI.askQuestion(correctionQuestion);
+        const correctedValue =
+          await this.consoleUI.askQuestion(correctionQuestion);
 
         if (this.isUserCancellation(correctedValue)) {
           return false;
@@ -340,12 +356,16 @@ export class FormProcessingService {
 
         const sanitizedValue = FormUtils.sanitizeInput(correctedValue);
 
-        let field = await this.findFieldByNameOrLabel(error.fieldName, error.fieldLabel);
+        let field = await this.findFieldByNameOrLabel(
+          error.fieldName,
+          error.fieldLabel
+        );
 
         if (!field) {
           const hiddenField = hiddenFields.find(
-            f => f.label.includes(error.fieldLabel || error.fieldName) ||
-                (error.fieldLabel || error.fieldName).includes(f.label)
+            (f) =>
+              f.label.includes(error.fieldLabel || error.fieldName) ||
+              (error.fieldLabel || error.fieldName).includes(f.label)
           );
           if (hiddenField) {
             field = hiddenField;
@@ -381,13 +401,16 @@ export class FormProcessingService {
       if (field.type === "select") {
         const options = await this.page.$$eval(
           `${field.selector} option`,
-          (opts) => opts.map(opt => opt.textContent?.trim() || '').filter(text => text)
+          (opts) =>
+            opts
+              .map((opt) => opt.textContent?.trim() || "")
+              .filter((text) => text)
         );
         if (options.length > 0) return options;
       }
 
       await element.click();
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
       const optionSelectors = [
         '[role="option"]',
@@ -405,14 +428,14 @@ export class FormProcessingService {
 
             for (const option of options) {
               const text = await option.evaluate(
-                el => el.textContent?.trim() || el.getAttribute("value") || ""
+                (el) => el.textContent?.trim() || el.getAttribute("value") || ""
               );
               if (text && !optionTexts.includes(text)) {
                 optionTexts.push(text);
               }
             }
 
-            await this.page.click("body"); 
+            await this.page.click("body");
             return optionTexts;
           }
         } catch (error) {
@@ -447,7 +470,7 @@ export class FormProcessingService {
     }
 
     const matchingOption = options.find(
-      option =>
+      (option) =>
         option.toLowerCase().includes(answer.toLowerCase()) ||
         answer.toLowerCase().includes(option.toLowerCase())
     );
@@ -462,53 +485,288 @@ export class FormProcessingService {
     };
   }
 
-  private validateFieldInput(
-    field: FormField,
-    input: string
-  ): { isValid: boolean; message?: string } {
-    if (field.required && !input.trim()) {
-      return {
-        isValid: false,
-        message: "This field is required. Please provide a value.",
-      };
-    }
+private validateFieldInput(
+  field: FormField,
+  input: string
+): { isValid: boolean; message?: string } {
+  // First check for required fields
+  if (field.required && !input.trim()) {
+    return {
+      isValid: false,
+      message: "This field is required. Please provide a value.",
+    };
+  }
 
-    switch (field.type) {
-      case "email":
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (input && !emailRegex.test(input)) {
-          return {
-            isValid: false,
-            message: "Please provide a valid email address (e.g., name@example.com).",
-          };
-        }
-        break;
-      case "tel":
-        const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
-        if (input && !phoneRegex.test(input.replace(/\s|-|\(|\)/g, ""))) {
-          return {
-            isValid: false,
-            message: "Please provide a valid phone number.",
-          };
-        }
-        break;
-      case "number":
-        if (input && isNaN(Number(input))) {
-          return { isValid: false, message: "Please provide a valid number." };
-        }
-        break;
-    }
-
+  // If not required and empty, it's valid
+  if (!input.trim() && !field.required) {
     return { isValid: true };
   }
+
+  switch (field.type) {
+    case "email":
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(input)) {
+        return {
+          isValid: false,
+          message: "Please provide a valid email address (e.g., name@example.com).",
+        };
+      }
+      break;
+
+    case "tel":
+      const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+      const cleanPhone = input.replace(/\s|-|\(|\)/g, "");
+      if (!phoneRegex.test(cleanPhone)) {
+        return {
+          isValid: false,
+          message: "Please provide a valid phone number (e.g., +1234567890 or 1234567890).",
+        };
+      }
+      break;
+
+    case "number":
+      if (isNaN(Number(input))) {
+        return { 
+          isValid: false, 
+          message: "Please provide a valid number." 
+        };
+      }
+      
+      // Check for min/max constraints if they exist
+      const numValue = Number(input);
+      if (field.min !== undefined && numValue < field.min) {
+        return {
+          isValid: false,
+          message: `Number must be at least ${field.min}.`
+        };
+      }
+      if (field.max !== undefined && numValue > field.max) {
+        return {
+          isValid: false,
+          message: `Number must be at most ${field.max}.`
+        };
+      }
+      break;
+
+    case "date":
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(input)) {
+        return {
+          isValid: false,
+          message: "Please use format: YYYY-MM-DD (e.g., 2024-03-15)",
+        };
+      }
+      
+      // Validate actual date
+      const date = new Date(input);
+      if (isNaN(date.getTime())) {
+        return {
+          isValid: false,
+          message: "Please provide a valid date.",
+        };
+      }
+      
+      // Check min/max date constraints
+      if (field.min) {
+        const minDate = new Date(field.min);
+        if (date < minDate) {
+          return {
+            isValid: false,
+            message: `Date must be on or after ${field.min}.`
+          };
+        }
+      }
+      if (field.max) {
+        const maxDate = new Date(field.max);
+        if (date > maxDate) {
+          return {
+            isValid: false,
+            message: `Date must be on or before ${field.max}.`
+          };
+        }
+      }
+      break;
+
+    case "datetime-local":
+      const datetimeRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+      if (!datetimeRegex.test(input)) {
+        return {
+          isValid: false,
+          message: "Please use format: YYYY-MM-DDTHH:mm (e.g., 2024-03-15T14:30)",
+        };
+      }
+      
+      const datetime = new Date(input);
+      if (isNaN(datetime.getTime())) {
+        return {
+          isValid: false,
+          message: "Please provide a valid date and time.",
+        };
+      }
+      break;
+
+    case "time":
+      const timeRegex = /^([01]?\d|2[0-3]):[0-5]\d$/;
+      if (!timeRegex.test(input)) {
+        return {
+          isValid: false,
+          message: "Please use 24-hour format: HH:mm (e.g., 14:30)",
+        };
+      }
+      break;
+
+    case "month":
+      const monthRegex = /^\d{4}-\d{2}$/;
+      if (!monthRegex.test(input)) {
+        return {
+          isValid: false,
+          message: "Please use format: YYYY-MM (e.g., 2024-03)",
+        };
+      }
+      
+      const [year, month] = input.split('-').map(Number);
+      if (month < 1 || month > 12) {
+        return {
+          isValid: false,
+          message: "Month must be between 01 and 12.",
+        };
+      }
+      break;
+
+    case "week":
+      const weekRegex = /^\d{4}-W\d{2}$/;
+      if (!weekRegex.test(input)) {
+        return {
+          isValid: false,
+          message: "Please use format: YYYY-W## (e.g., 2024-W12)",
+        };
+      }
+      
+      const weekNum = parseInt(input.split('-W')[1]);
+      if (weekNum < 1 || weekNum > 53) {
+        return {
+          isValid: false,
+          message: "Week number must be between 01 and 53.",
+        };
+      }
+      break;
+
+    case "color":
+      const hexColorRegex = /^#[0-9A-Fa-f]{6}$/;
+      const colorNames = [
+        'red', 'green', 'blue', 'yellow', 'black', 'white', 
+        'purple', 'orange', 'pink', 'gray', 'grey', 'brown',
+        'cyan', 'magenta', 'lime', 'navy', 'olive', 'teal'
+      ];
+      
+      if (!hexColorRegex.test(input) && !colorNames.includes(input.toLowerCase())) {
+        return {
+          isValid: false,
+          message: "Please use a color name (e.g., 'red') or hex format (e.g., '#FF0000')",
+        };
+      }
+      break;
+
+    case "url":
+      try {
+        const url = new URL(input.startsWith('http') ? input : `https://${input}`);
+        if (!['http:', 'https:'].includes(url.protocol)) {
+          throw new Error('Invalid protocol');
+        }
+      } catch (e) {
+        return {
+          isValid: false,
+          message: "Please provide a valid URL (e.g., https://example.com)",
+        };
+      }
+      break;
+
+    case "range":
+      const rangeValue = Number(input);
+      if (isNaN(rangeValue)) {
+        return {
+          isValid: false,
+          message: "Please provide a numeric value.",
+        };
+      }
+      
+      const min = field.min ?? 0;
+      const max = field.max ?? 100;
+      
+      if (rangeValue < min || rangeValue > max) {
+        return {
+          isValid: false,
+          message: `Please provide a value between ${min} and ${max}.`,
+        };
+      }
+      break;
+
+    case "checkbox":
+    case "radio":
+      const validBooleanInputs = ['true', 'false', 'yes', 'no', '1', '0', 'on', 'off', 'checked', 'unchecked'];
+      if (!validBooleanInputs.includes(input.toLowerCase())) {
+        return {
+          isValid: false,
+          message: "Please enter: yes/no, true/false, or 1/0",
+        };
+      }
+      break;
+      // Search fields usually don't have strict validation
+      // but you might want to check for minimum length
+      if (input.length < 2) {
+        return {
+          isValid: false,
+          message: "Search query must be at least 2 characters.",
+        };
+      }
+      break;
+
+    case "select":
+      if (field.options && field.options.length > 0) {
+        const validOption = field.options.some(option => 
+          option.toLowerCase() === input.toLowerCase() ||
+          option.toLowerCase().includes(input.toLowerCase())
+        );
+        
+        if (!validOption) {
+          return {
+            isValid: false,
+            message: `Please select one of the available options: ${field.options.slice(0, 5).join(', ')}${field.options.length > 5 ? '...' : ''}`,
+          };
+        }
+      }
+      break;
+
+    default:
+      if (field.minLength && input.length < field.minLength) {
+        return {
+          isValid: false,
+          message: `This field requires at least ${field.minLength} characters.`,
+        };
+      }
+      
+      if (field.maxLength && input.length > field.maxLength) {
+        return {
+          isValid: false,
+          message: `This field allows a maximum of ${field.maxLength} characters.`,
+        };
+      }
+      
+      break;
+  }
+
+  return { isValid: true };
+}
 
   private buildFieldContext(field: FormField): string {
     const contexts = [];
     if (field.required) contexts.push("This field is required");
     if (field.placeholder) contexts.push(`Example: ${field.placeholder}`);
 
-    if (field.type === "email") contexts.push("Please provide a valid email address");
-    if (field.type === "tel") contexts.push("Please provide a valid phone number");
+    if (field.type === "email")
+      contexts.push("Please provide a valid email address");
+    if (field.type === "tel")
+      contexts.push("Please provide a valid phone number");
 
     return contexts.join(". ");
   }
@@ -533,7 +791,7 @@ export class FormProcessingService {
         return match[1];
       }
     }
-    
+
     if ((field as any).name) {
       return (field as any).name;
     }
@@ -545,7 +803,10 @@ export class FormProcessingService {
     return field.label.replace(/\s*\*\s*$/, "").trim();
   }
 
-  private async fillFieldEnhanced(field: FormField, value: string): Promise<void> {
+  private async fillFieldEnhanced(
+    field: FormField,
+    value: string
+  ): Promise<void> {
     try {
       const selectors = [field.selector];
 
@@ -588,16 +849,22 @@ export class FormProcessingService {
         return {
           disabled: input.disabled || el.hasAttribute("disabled"),
           readonly: input.readOnly || el.hasAttribute("readonly"),
-          visible: computedStyle.display !== "none" && computedStyle.visibility !== "hidden",
+          visible:
+            computedStyle.display !== "none" &&
+            computedStyle.visibility !== "hidden",
           tagName: el.tagName.toLowerCase(),
           type: input.type || "",
-          isDropdown: el.className.includes("select") || 
-                      el.getAttribute("role") === "combobox" ||
-                      el.tagName.toLowerCase() === "select",
+          isDropdown:
+            el.className.includes("select") ||
+            el.getAttribute("role") === "combobox" ||
+            el.tagName.toLowerCase() === "select",
         };
       });
 
-      if (elementState.disabled) {
+      if (elementState.disabled || elementState.readonly) {
+        console.log(
+          `Skipping ${elementState.disabled ? "disabled" : "readonly"} field: ${field.label}`
+        );
         return;
       }
 
@@ -606,9 +873,7 @@ export class FormProcessingService {
       } else {
         await this.fillFieldByType(element, field, value);
       }
-
-    } catch (error) {
-    }
+    } catch (error) {}
   }
 
   private async fillDropdownField(
@@ -617,14 +882,16 @@ export class FormProcessingService {
     fieldLabel: string
   ): Promise<void> {
     try {
-      const tagName = await element.evaluate((el: Element) => el.tagName.toLowerCase());
+      const tagName = await element.evaluate((el: Element) =>
+        el.tagName.toLowerCase()
+      );
       if (tagName === "select") {
         await element.select(value);
         return;
       }
 
       await element.click();
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
       const optionSelectors = [
         '[role="option"]',
@@ -643,9 +910,11 @@ export class FormProcessingService {
                 (el: Element) => el.textContent?.trim().toLowerCase() || ""
               );
 
-              if (optionText === value.toLowerCase() ||
-                  optionText.includes(value.toLowerCase()) ||
-                  value.toLowerCase().includes(optionText)) {
+              if (
+                optionText === value.toLowerCase() ||
+                optionText.includes(value.toLowerCase()) ||
+                value.toLowerCase().includes(optionText)
+              ) {
                 await option.click();
                 return;
               }
@@ -659,8 +928,7 @@ export class FormProcessingService {
       await element.focus();
       await element.type(value);
       await this.page.keyboard.press("Enter");
-    } catch (error) {
-    }
+    } catch (error) {}
   }
 
   private async fillFieldByType(
@@ -670,9 +938,127 @@ export class FormProcessingService {
   ): Promise<void> {
     switch (field.type) {
       case "checkbox":
+      case "select":
+        await this.fillDropdownField(element, value, field.label);
+      break;
+      case "password":
+        await element.focus();
+        await element.evaluate((el: Element) => {
+          const input = el as HTMLInputElement;
+          input.value = "";
+        });
+        await element.type(value, { delay: 100 });
+        break;
+      case "email":
+        const emailValue = value.trim().toLowerCase();
+        await element.focus();
+        await element.evaluate((el: Element) => {
+          const input = el as HTMLInputElement;
+          input.value = "";
+        });
+        await element.type(emailValue, { delay: 50 });
+        break;
+      case "number":
+        const numValue = value.replace(/[^0-9.-]/g, "");
+        await element.focus();
+        await element.evaluate((el: Element, val: string) => {
+          const input = el as HTMLInputElement;
+          input.value = val;
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+        }, numValue);
+        break;
+      case "tel":
+        const phoneValue = value.replace(/[^\d+\-() ]/g, "");
+        await element.focus();
+        await element.evaluate((el: Element) => {
+          const input = el as HTMLInputElement;
+          input.value = "";
+        });
+        await element.type(phoneValue, { delay: 50 });
+        break;
+      case "color":
+        let colorValue = value.trim();
+
+        if (!colorValue.startsWith("#")) {
+          const colorMap: Record<string, string> = {
+            red: "#FF0000",
+            green: "#008000",
+            blue: "#0000FF",
+            yellow: "#FFFF00",
+            black: "#000000",
+            white: "#FFFFFF",
+            purple: "#800080",
+            orange: "#FFA500",
+            pink: "#FFC0CB",
+            gray: "#808080",
+            grey: "#808080",
+            brown: "#A52A2A",
+          };
+
+          colorValue = colorMap[colorValue.toLowerCase()] || "#000000";
+        }
+
+        if (!/^#[0-9A-Fa-f]{6}$/.test(colorValue)) {
+          colorValue = "#000000";
+        }
+
+        await element.evaluate((el: HTMLInputElement, val: string) => {
+          el.value = val;
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+        }, colorValue);
+        break;
+      case "date":
+        await element.evaluate((el: HTMLInputElement, val: string) => {
+          el.value = val;
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+        }, value);
+        break;
+      case "datetime-local":
+        await element.evaluate((el: HTMLInputElement, val: string) => {
+          el.value = val;
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+        }, value);
+        break;
+      case "file":
+        console.log("File inputs require special handling - skipping");
+        break;
+      case "range":
+        await element.evaluate((el: HTMLInputElement, val: string) => {
+          el.value = val;
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }, value);
+        break;
+      case "time":
+        await element.evaluate((el: HTMLInputElement, val: string) => {
+          el.value = val;
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+        }, value);
+        break;
+      case "week":
+        await element.evaluate((el: HTMLInputElement, val: string) => {
+          el.value = val;
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+        }, value);
+        break;
+      case "month":
+        await element.evaluate((el: HTMLInputElement, val: string) => {
+          el.value = val;
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+        }, value);
+        break;
       case "radio":
-        const shouldCheck = ["true", "yes", "1", "on", "checked"].includes(value.toLowerCase());
-        const isChecked = await element.evaluate((el: Element) => (el as HTMLInputElement).checked);
+        const shouldCheck = ["true", "yes", "1", "on", "checked"].includes(
+          value.toLowerCase()
+        );
+        const isChecked = await element.evaluate(
+          (el: Element) => (el as HTMLInputElement).checked
+        );
         if (shouldCheck !== isChecked) {
           await element.click();
         }
@@ -687,12 +1073,40 @@ export class FormProcessingService {
         break;
       default:
         await element.focus();
-        await this.page.keyboard.down("Control");
-        await this.page.keyboard.press("KeyA");
-        await this.page.keyboard.up("Control");
-        await element.type(value, { delay: 50 });
-        break;
-    }
+    
+        const hasDatalist = await element.evaluate((el: Element) => {
+        const input = el as HTMLInputElement;
+        return !!input.list;
+      });
+      
+      if (hasDatalist) {
+        await element.evaluate((el: Element) => {
+          const input = el as HTMLInputElement;
+          input.value = "";
+        });
+        await element.type(value, { delay: 100 });
+        
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+          try {
+            const optionSelector = `option[value="${value}"]`;
+            const option = await this.page.$(optionSelector);
+            if (option) {
+              await option.click();
+            }
+          } catch (error) {}}
+          else{
+            await element.focus();
+            await this.page.keyboard.down("Control");
+            await this.page.keyboard.press("KeyA");
+            await this.page.keyboard.up("Control");
+            await element.type(value, { delay: 50 });
+          }
+       break;
+      }
+      await element.evaluate((el: Element) => {
+    el.dispatchEvent(new Event('blur', { bubbles: true }));
+  });
   }
 
   private async findWorkingSelector(field: FormField): Promise<string | null> {
@@ -751,7 +1165,10 @@ export class FormProcessingService {
 
         for (const label of labels) {
           const labelContent = label.textContent?.trim() || "";
-          if (labelContent.includes(cleanText) || cleanText.includes(labelContent)) {
+          if (
+            labelContent.includes(cleanText) ||
+            cleanText.includes(labelContent)
+          ) {
             const forAttr = label.getAttribute("for");
             if (forAttr) {
               const input = document.getElementById(forAttr);
@@ -762,8 +1179,10 @@ export class FormProcessingService {
             if (input) return input;
 
             const nextElement = label.nextElementSibling;
-            if (nextElement && 
-                ["INPUT", "TEXTAREA", "SELECT"].includes(nextElement.tagName)) {
+            if (
+              nextElement &&
+              ["INPUT", "TEXTAREA", "SELECT"].includes(nextElement.tagName)
+            ) {
               return nextElement;
             }
           }
@@ -774,7 +1193,10 @@ export class FormProcessingService {
         );
         for (const input of inputs) {
           const placeholder = input.getAttribute("placeholder") || "";
-          if (placeholder.includes(cleanText) || cleanText.includes(placeholder)) {
+          if (
+            placeholder.includes(cleanText) ||
+            cleanText.includes(placeholder)
+          ) {
             return input;
           }
         }
@@ -798,7 +1220,7 @@ export class FormProcessingService {
 
             if (["input", "textarea", "select", "div"].includes(tagName)) {
               let label = "";
-              
+
               const parent = element.parentElement;
               if (parent) {
                 const labelElement = parent.querySelector("label");
@@ -824,8 +1246,12 @@ export class FormProcessingService {
                 foundFields.push({
                   label: label,
                   selector: `#${element.id}`,
-                  type: element.tagName.toLowerCase() === "select" ? "select" : "input",
-                  required: label.includes("*") || element.hasAttribute("required"),
+                  type:
+                    element.tagName.toLowerCase() === "select"
+                      ? "select"
+                      : "input",
+                  required:
+                    label.includes("*") || element.hasAttribute("required"),
                   placeholder: element.getAttribute("placeholder") || "",
                 });
               }
@@ -910,8 +1336,10 @@ export class FormProcessingService {
         const currentLabelText = await label.evaluate(
           (el: Element) => el.textContent?.trim() || ""
         );
-        if (currentLabelText === labelText || 
-            currentLabelText.includes(labelText)) {
+        if (
+          currentLabelText === labelText ||
+          currentLabelText.includes(labelText)
+        ) {
           const forAttr = await label.evaluate((el: Element) =>
             el.getAttribute("for")
           );
@@ -978,8 +1406,8 @@ export class FormProcessingService {
       'input[type="submit"]',
       'button:contains("Submit")',
       'button:contains("Send")',
-      '.submit-btn',
-      '#submit',
+      ".submit-btn",
+      "#submit",
       '[data-testid="submit"]',
     ];
 
@@ -997,8 +1425,14 @@ export class FormProcessingService {
 
     const buttons = await this.page.$$("button");
     for (const button of buttons) {
-      const text = await button.evaluate(el => el.textContent?.toLowerCase() || "");
-      if (["submit", "send", "continue", "save", "next"].some(keyword => text.includes(keyword))) {
+      const text = await button.evaluate(
+        (el) => el.textContent?.toLowerCase() || ""
+      );
+      if (
+        ["submit", "send", "continue", "save", "next"].some((keyword) =>
+          text.includes(keyword)
+        )
+      ) {
         if (await this.isElementVisible(button)) {
           await button.click();
           return;
@@ -1083,5 +1517,4 @@ export class FormProcessingService {
   async processFormWithValidation(formFields: FormField[]): Promise<boolean> {
     return this.processFormWithValidationEnhanced(formFields);
   }
-
 }
