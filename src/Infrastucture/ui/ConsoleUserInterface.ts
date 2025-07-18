@@ -1,6 +1,11 @@
 import readline from 'readline';
 import { IUserInterface } from '../../Application/Interfaces/IUserInterface';
 
+/**
+ * Console-based user interface for interacting with the AI Form Automation Tool.
+ * It provides methods to ask questions, show messages, display tables, and handle progress updates.
+ */
+
 export class ConsoleUserInterface implements IUserInterface {
   private rl: readline.Interface;
   private questionCount: number = 0;

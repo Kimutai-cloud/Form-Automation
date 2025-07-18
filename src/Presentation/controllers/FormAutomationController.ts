@@ -46,7 +46,7 @@ export class FormAutomationController {
 
   async run(automationConfig?: FormAutomationConfig): Promise<FormAutomationResult> {
   try {
-    console.log('🚀 Starting Enhanced Form Automation with Validation...\n');
+    console.log('🚀 Starting Form Automation\n');
     
     await this.initializeBrowser(automationConfig?.headless ?? this.config.headlessMode);
     
@@ -60,7 +60,6 @@ export class FormAutomationController {
     
     console.log('🔍 Analyzing form fields...');
     
-    // Initialize the form repository with the page
     await this.formRepository.initialize(automationConfig?.headless ?? this.config.headlessMode);
     await this.formRepository.navigateToPage(formUrl, automationConfig?.timeout);
     

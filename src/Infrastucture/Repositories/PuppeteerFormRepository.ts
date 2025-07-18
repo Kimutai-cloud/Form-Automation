@@ -4,6 +4,12 @@ import { FormFieldEntity } from "../../Domain/Entities/FormField";
 import { FormSubmissionResult } from "../../Domain/Entities/FormSubmission";
 import { Logger } from "../logging/Logger";
 
+/**
+ * Puppeteer-based implementation of the IFormRepository interface.
+ * This class handles browser automation tasks such as navigating to pages,
+ * extracting form fields, filling fields, and submitting forms.
+ */
+
 export class PuppeteerFormRepository implements IFormRepository {
   private browser: Browser | null = null;
   private page: Page | null = null;
@@ -48,16 +54,12 @@ export class PuppeteerFormRepository implements IFormRepository {
     try {
       await this.revealHiddenFields();
 
-      // Wait for any dynamic content to load
       await this.delay(1000);
 
-      // Try to trigger any lazy-loaded form elements
       await this.page.evaluate(() => {
-        // Scroll through the page to trigger any lazy loading
         window.scrollTo(0, document.body.scrollHeight);
         window.scrollTo(0, 0);
 
-        // Try to focus on form elements to trigger dynamic loading
         const allFormElements = document.querySelectorAll(
           'input, select, textarea, [role="combobox"], [role="listbox"]'
         );
@@ -67,16 +69,13 @@ export class PuppeteerFormRepository implements IFormRepository {
               (el as HTMLElement).focus();
               (el as HTMLElement).blur();
             } catch (e) {
-              // Silent fail
             }
           }, index * 10);
         });
       });
 
-      // Wait for dynamic content to settle
       await this.delay(1000);
 
-      // Enable console logging from the page
       this.page.on("console", (msg) => {
         if (msg.text().startsWith("DEBUG:")) {
           this.logger.info(`Page Debug: ${msg.text()}`);
@@ -87,27 +86,21 @@ export class PuppeteerFormRepository implements IFormRepository {
         const foundFields: any[] = [];
         const processedElements = new Set<Element>();
 
-        // Enhanced type detection function
         const getElementType = (element: Element): string => {
           const tagName = element.tagName.toLowerCase();
 
-          // Check for explicit type attribute first
           const typeAttr = element.getAttribute("type");
 
-          // Check for data attributes that might indicate type
           const dataType = element.getAttribute("data-type");
 
-          // Check for class names that might indicate type
           const classList = element.className;
 
-          // Check for ARIA attributes
           const role = element.getAttribute("role");
 
           console.log(
             `DEBUG: Element analysis - tag: ${tagName}, type: ${typeAttr}, dataType: ${dataType}, classes: ${classList}, role: ${role}`
           );
 
-          // Handle different element types
           if (tagName === "select") {
             return "select";
           }
@@ -117,17 +110,14 @@ export class PuppeteerFormRepository implements IFormRepository {
           }
 
           if (tagName === "input") {
-            // Enhanced type detection for input elements
             if (typeAttr) {
               return typeAttr;
             }
 
-            // Try to detect type from other attributes
             if (dataType) {
               return dataType;
             }
 
-            // Check for common class patterns
             if (classList) {
               if (classList.includes("password")) return "password";
               if (classList.includes("email")) return "email";
@@ -139,7 +129,6 @@ export class PuppeteerFormRepository implements IFormRepository {
               if (classList.includes("search")) return "search";
             }
 
-            // Check input mode
             const inputMode = element.getAttribute("inputmode");
             if (inputMode) {
               switch (inputMode) {
@@ -156,7 +145,6 @@ export class PuppeteerFormRepository implements IFormRepository {
               }
             }
 
-            // Check for patterns that might indicate type
             const placeholder = element
               .getAttribute("placeholder")
               ?.toLowerCase();
@@ -172,12 +160,9 @@ export class PuppeteerFormRepository implements IFormRepository {
               )
                 return "url";
             }
-
-            // Default to text for input elements
             return "text";
           }
 
-          // Handle elements with roles - but only if they're actual form controls
           if (
             role &&
             (tagName === "input" ||
@@ -198,9 +183,7 @@ export class PuppeteerFormRepository implements IFormRepository {
             }
           }
 
-          // Check for custom form elements (like Mantine components) - but be more specific
           if (classList && (tagName === "div" || tagName === "span")) {
-            // Only consider divs/spans that have clear form control indicators
             const hasFormRole =
               element.hasAttribute("role") &&
               ["combobox", "listbox", "textbox", "searchbox"].includes(
@@ -258,13 +241,10 @@ export class PuppeteerFormRepository implements IFormRepository {
           return "";
         };
 
-        // Helper function to check if element is a form control
         const isFormControl = (element: Element): boolean => {
           const tagName = element.tagName.toLowerCase();
 
-          // Standard form controls
           if (["input", "select", "textarea"].includes(tagName)) {
-            // Skip hidden, submit, button, reset inputs
             if (tagName === "input") {
               const type = element.getAttribute("type");
               if (
@@ -276,7 +256,6 @@ export class PuppeteerFormRepository implements IFormRepository {
             return true;
           }
 
-          // Custom form controls with proper roles
           const role = element.getAttribute("role");
           if (
             role &&
@@ -285,7 +264,6 @@ export class PuppeteerFormRepository implements IFormRepository {
             return true;
           }
 
-          // Mantine or other custom form controls - be very specific
           const classList = element.className;
           if (classList && (tagName === "div" || tagName === "span")) {
             const hasFormRole =
@@ -308,9 +286,7 @@ export class PuppeteerFormRepository implements IFormRepository {
           return false;
         };
 
-        // Helper function to find label for an element
         const findLabel = (element: Element): string => {
-          // Method 1: Look for label with matching 'for' attribute
           const id = element.getAttribute("id");
           if (id) {
             const labelByFor = document.querySelector(`label[for="${id}"]`);
@@ -319,7 +295,6 @@ export class PuppeteerFormRepository implements IFormRepository {
             }
           }
 
-          // Method 2: Check if element is inside a label
           const parentLabel = element.closest("label");
           if (parentLabel) {
             const clone = parentLabel.cloneNode(true) as HTMLElement;
@@ -330,7 +305,6 @@ export class PuppeteerFormRepository implements IFormRepository {
             return clone.textContent?.trim() || "";
           }
 
-          // Method 3: Look for nearby labels using various strategies
           const allLabels = Array.from(document.querySelectorAll("label"));
           const elementRect = element.getBoundingClientRect();
 
@@ -366,7 +340,6 @@ export class PuppeteerFormRepository implements IFormRepository {
             return closestLabel.textContent?.trim() || "";
           }
 
-          // Method 4: Look for aria-label or aria-labelledby
           const ariaLabel = element.getAttribute("aria-label");
           if (ariaLabel) {
             return ariaLabel.trim();
@@ -380,7 +353,6 @@ export class PuppeteerFormRepository implements IFormRepository {
             }
           }
 
-          // Method 5: Look for placeholder or title
           const placeholder = element.getAttribute("placeholder");
           if (placeholder) {
             return placeholder.trim();
@@ -391,7 +363,6 @@ export class PuppeteerFormRepository implements IFormRepository {
             return title.trim();
           }
 
-          // Method 6: Try to derive from name or id
           const name =
             element.getAttribute("name") || element.getAttribute("id");
           if (name) {
@@ -403,7 +374,6 @@ export class PuppeteerFormRepository implements IFormRepository {
           return "";
         };
 
-        // FIXED: Only select actual form controls, not labels or wrapper divs
         const potentialElements = Array.from(
           document.querySelectorAll(`
         input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
@@ -416,7 +386,6 @@ export class PuppeteerFormRepository implements IFormRepository {
       `)
         );
 
-        // Also look for custom form controls with specific patterns
         const customFormControls = Array.from(
           document.querySelectorAll(`
         [class*="mantine-Input"],
@@ -436,15 +405,12 @@ export class PuppeteerFormRepository implements IFormRepository {
           `DEBUG: Found ${allElements.length} potential form elements`
         );
 
-        // Process each element
         allElements.forEach((element, index) => {
-          // Skip if already processed
           if (processedElements.has(element)) {
             console.log(`DEBUG: Skipping already processed element ${index}`);
             return;
           }
 
-          // Check if this is actually a form control
           if (!isFormControl(element)) {
             console.log(
               `DEBUG: Skipping non-form-control element ${index}: ${element.tagName}`
@@ -455,7 +421,6 @@ export class PuppeteerFormRepository implements IFormRepository {
           const tagName = element.tagName.toLowerCase();
           const fieldType = getElementType(element);
 
-          // Skip if we couldn't determine a valid type
           if (!fieldType) {
             console.log(
               `DEBUG: Skipping element with no valid type: ${tagName}`
@@ -474,14 +439,12 @@ export class PuppeteerFormRepository implements IFormRepository {
 
           const label = findLabel(element);
 
-          // Create better selector
           let selector = "";
           if (element.getAttribute("name")) {
             selector = `[name="${element.getAttribute("name")}"]`;
           } else if (element.getAttribute("id")) {
             selector = `#${element.getAttribute("id")}`;
           } else {
-            // Create a more specific selector for elements without name/id
             const classList = element.className;
             if (classList) {
               const classes = classList.split(" ").filter((c) => c.trim());
@@ -512,7 +475,6 @@ export class PuppeteerFormRepository implements IFormRepository {
             placeholder: (element as HTMLInputElement).placeholder || "",
           };
 
-          // Handle select options
           if (fieldType === "select" && tagName === "select") {
             const selectElement = element as HTMLSelectElement;
             fieldData.options = Array.from(selectElement.options)
@@ -524,11 +486,9 @@ export class PuppeteerFormRepository implements IFormRepository {
             );
           }
 
-          // Handle radio button groups
           if (fieldType === "radio") {
             const radioName = element.getAttribute("name");
             if (radioName) {
-              // Check if we've already processed this radio group
               const existingRadioField = foundFields.find(
                 (f) =>
                   f.type === "radio" &&
@@ -542,7 +502,6 @@ export class PuppeteerFormRepository implements IFormRepository {
                 return;
               }
 
-              // Get all radio buttons in this group
               const radioGroup = Array.from(
                 document.querySelectorAll(
                   `input[type="radio"][name="${radioName}"]`
@@ -555,16 +514,12 @@ export class PuppeteerFormRepository implements IFormRepository {
                 );
               });
 
-              // Mark all radio buttons in this group as processed
               radioGroup.forEach((radio) => processedElements.add(radio));
             }
           }
-
-          // Handle checkbox groups
           if (fieldType === "checkbox") {
             const checkboxName = element.getAttribute("name");
             if (checkboxName) {
-              // Check if we've already processed this checkbox group
               const existingCheckboxField = foundFields.find(
                 (f) =>
                   f.type === "checkbox" &&
@@ -578,7 +533,6 @@ export class PuppeteerFormRepository implements IFormRepository {
                 return;
               }
 
-              // Get all checkboxes in this group
               const checkboxGroup = Array.from(
                 document.querySelectorAll(
                   `input[type="checkbox"][name="${checkboxName}"]`
@@ -594,7 +548,6 @@ export class PuppeteerFormRepository implements IFormRepository {
                   );
                 });
 
-                // Mark all checkboxes in this group as processed
                 checkboxGroup.forEach((checkbox) =>
                   processedElements.add(checkbox)
                 );
@@ -645,7 +598,6 @@ export class PuppeteerFormRepository implements IFormRepository {
     if (!this.page) throw new Error("Browser not initialized");
 
     try {
-      // Try to find the element
       await this.page.waitForSelector(selector, { timeout: 5000 });
 
       const elementInfo = await this.page.evaluate((sel) => {
@@ -671,7 +623,6 @@ export class PuppeteerFormRepository implements IFormRepository {
       );
 
       if (tagName === "select") {
-        // Handle select dropdown
         const options = await this.page.evaluate((sel) => {
           const selectElement = document.querySelector(
             sel
@@ -684,7 +635,6 @@ export class PuppeteerFormRepository implements IFormRepository {
           }));
         }, selector);
 
-        // Try to find option by value first, then by text
         let optionFound = false;
         for (const option of options) {
           if (
@@ -706,7 +656,6 @@ export class PuppeteerFormRepository implements IFormRepository {
           );
         }
       } else if (type === "radio") {
-        // Handle radio buttons - FIXED: Better radio button selection
         const radioElements = await this.page.$$(selector);
         let filled = false;
 
@@ -738,7 +687,6 @@ export class PuppeteerFormRepository implements IFormRepository {
           this.logger.warn(`Radio option not found for value: ${value}`);
         }
       } else if (type === "checkbox") {
-        // Handle checkboxes - FIXED: Better checkbox handling
         const checkboxElements = await this.page.$$(selector);
 
         for (const checkbox of checkboxElements) {
@@ -769,10 +717,9 @@ export class PuppeteerFormRepository implements IFormRepository {
           }
         }
       } else {
-        // Handle text inputs, textareas, etc.
         const element = await this.page.$(selector);
         if (element) {
-          await element.click({ clickCount: 3 }); // Select all text
+          await element.click({ clickCount: 3 }); 
           await element.type(value, { delay: 50 });
         }
       }

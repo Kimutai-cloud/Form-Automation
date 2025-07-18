@@ -3,6 +3,11 @@ import { FormAutomationConfig } from '../../Application/Interfaces/IFormAutomati
 import { IUserInterface } from '../../Application/Interfaces/IUserInterface';
 import { Logger } from '../../Infrastucture/logging/Logger';
 
+/**
+ * Command Line Interface (CLI) runner for the AI Form Automation Tool.
+ * This class handles user interaction, configuration, and execution of form automation tasks.
+ */
+
 export class CLIRunner {
   constructor(
     private readonly controller: FormAutomationController,

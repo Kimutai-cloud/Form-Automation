@@ -8,7 +8,7 @@ A conversational AI-powered form automation tool that uses Puppeteer for web scr
 - 🤖 **AI-Powered Questions**: Uses OpenAI GPT to generate natural, conversational questions for form fields  
 - 🎯 **Smart Form Detection**: Automatically detects and extracts form fields from web pages  
 - 🔧 **Configurable Tone**: Choose between casual and professional question styles  
-- ✅ **Input Validation**: Validates user input based on field requirements and common patterns  
+- ✅ **Input Validation**: Validates user input based on field requirements and UI error on the client side  
 - 📊 **Comprehensive Logging**: Detailed logging with Winston for debugging and monitoring  
 - 💻 **Easy to Use**: Simple CLI interface for seamless interaction  
 
@@ -99,11 +99,6 @@ npm start
 ```bash
 https://www.selenium.dev/selenium/web/web-form.html
 ```
-OR
-
-```bash
-https://fomr.io/s/vjgrpZ9Out
-```
 
 ### Runtime Prompts
 
@@ -120,7 +115,8 @@ https://fomr.io/s/vjgrpZ9Out
 2. **Question Generation**: GPT generates questions based on field labels  
 3. **User Interaction**: CLI prompts user and collects validated answers  
 4. **Form Filling**: Puppeteer fills the form fields  
-5. **Form Submission**: Form is submitted, results are logged  
+5. **Form Submission**: Form is submitted, results are logged
+6. **Form Validation**: Validation error are handled and processed through a LLM.  
 
 ---
 
@@ -130,6 +126,9 @@ https://fomr.io/s/vjgrpZ9Out
 - `<textarea>`
 - `<select>`
 - `<radio>`
+- `<date>`
+- `<password>`
+- `<email>`
 - Required field validation
 - Email format validation
 

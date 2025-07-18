@@ -5,9 +5,7 @@ import { FormField } from '../../Domain/Entities/FormField';
  */
 export class FormUtils {
   
-  /**
-   * Sanitizes user input by trimming whitespace and normalizing line breaks
-   */
+
   static sanitizeInput(input: string): string {
     return input
       .trim()
@@ -16,9 +14,6 @@ export class FormUtils {
       .replace(/[^\x20-\x7E\u00A0-\uFFFF]/g, ''); 
   }
 
-  /**
-   * Generates a field name from a label string
-   */
   static generateFieldNameFromLabel(label: string): string {
     return label
       .toLowerCase()
@@ -28,9 +23,7 @@ export class FormUtils {
       .replace(/^_|_$/g, ''); 
   }
 
-  /**
-   * Generates a summary of form fields for analysis
-   */
+
   static generateFieldSummary(fields: FormField[]): Record<string, any> {
     return {
       totalFields: fields.length,
@@ -45,9 +38,6 @@ export class FormUtils {
     };
   }
 
-  /**
-   * Calculates form complexity score based on field types and requirements
-   */
   static calculateFormComplexity(fields: FormField[]): 'simple' | 'moderate' | 'complex' {
     let complexityScore = 0;
     
@@ -76,34 +66,24 @@ export class FormUtils {
     return 'complex';
   }
 
-  /**
-   * Validates email format
-   */
   static isValidEmail(email: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   }
 
-  /**
-   * Validates phone number format (basic international format)
-   */
   static isValidPhone(phone: string): boolean {
     const cleanPhone = phone.replace(/\s|-|\(|\)/g, '');
     const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
     return phoneRegex.test(cleanPhone);
   }
 
-  /**
-   * Normalizes boolean-like strings to actual boolean values
-   */
+
   static normalizeBooleanInput(input: string): boolean {
     const truthyValues = ['true', 'yes', '1', 'on', 'checked', 'selected'];
     return truthyValues.includes(input.toLowerCase().trim());
   }
 
-  /**
-   * Extracts field name from various selector patterns
-   */
+
   static extractFieldNameFromSelector(selector: string): string | null {
     const patterns = [
       /\[name="([^"]+)"\]/,
@@ -123,9 +103,6 @@ export class FormUtils {
     return null;
   }
 
-  /**
-   * Generates multiple selector variations for field finding
-   */
   static generateSelectorVariations(fieldName: string): string[] {
     return [
       `[name="${fieldName}"]`,
@@ -139,17 +116,11 @@ export class FormUtils {
     ];
   }
 
-  /**
-   * Checks if input represents a cancellation intent
-   */
   static isCancellationInput(input: string): boolean {
     const cancelKeywords = ['quit', 'exit', 'cancel', 'abort', 'stop', 'back'];
     return cancelKeywords.includes(input.toLowerCase().trim());
   }
 
-  /**
-   * Formats field validation error messages
-   */
   static formatValidationError(fieldLabel: string, errorType: string, customMessage?: string): string {
     const templates = {
       required: `"${fieldLabel}" is required and cannot be empty.`,
@@ -164,16 +135,10 @@ export class FormUtils {
     return customMessage || templates[errorType as keyof typeof templates] || `"${fieldLabel}" has an error.`;
   }
 
-  /**
-   * Creates a delay promise for timing control
-   */
   static delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  /**
-   * Safely parses JSON strings
-   */
   static safeJsonParse<T>(jsonString: string, fallback: T): T {
     try {
       return JSON.parse(jsonString);
@@ -182,9 +147,6 @@ export class FormUtils {
     }
   }
 
-  /**
-   * Creates a unique identifier for form fields
-   */
   static createFieldId(field: FormField): string {
     const extractedName = FormUtils.extractFieldNameFromSelector(field.selector);
     if (extractedName) {
@@ -197,9 +159,6 @@ export class FormUtils {
     return `${typePrefix}_${labelName}`;
   }
 
-  /**
-   * Validates field constraints like minlength, maxlength, pattern
-   */
   static validateFieldConstraints(
     value: string, 
     constraints: {
@@ -246,10 +205,6 @@ export class FormUtils {
       errors
     };
   }
-
-  /**
-   * Converts common user inputs to standardized formats
-   */
   static standardizeUserInput(input: string, fieldType: string): string {
     let standardized = FormUtils.sanitizeInput(input);
 
@@ -272,9 +227,6 @@ export class FormUtils {
     return standardized;
   }
 
-  /**
-   * Generates helpful suggestions for common input errors
-   */
   static generateInputSuggestions(value: string, fieldType: string): string[] {
     const suggestions: string[] = [];
 
@@ -305,9 +257,6 @@ export class FormUtils {
     return suggestions;
   }
 
-  /**
-   * Estimates the time needed to fill a form based on complexity
-   */
   static estimateCompletionTime(fields: FormField[]): number {
     let estimatedSeconds = 0;
 
@@ -335,9 +284,6 @@ export class FormUtils {
     return Math.max(estimatedSeconds, 30); 
   }
 
-  /**
-   * Creates a progress indicator for form completion
-   */
   static createProgressIndicator(completed: number, total: number): string {
     const percentage = Math.round((completed / total) * 100);
     const progressBar = '█'.repeat(Math.floor(percentage / 5)) + 

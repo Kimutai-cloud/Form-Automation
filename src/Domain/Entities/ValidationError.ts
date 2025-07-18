@@ -1,5 +1,9 @@
 import { IValidationError } from '../Repositories/IValidationError';
 
+/**
+ * Represents a validation error in a form field.
+ */
+
 export class ValidationError implements IValidationError {
     constructor(
         public fieldName: string,

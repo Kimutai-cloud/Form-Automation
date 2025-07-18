@@ -7,6 +7,10 @@ import { ConsoleUserInterface } from "../../Infrastucture/ui/ConsoleUserInterfac
 import { AIQuestionRequest } from "../../Domain/Repositories/IAIRepository";
 import { FormUtils } from "../Services/FormUtils";
 
+/**
+ * Service for processing forms with validation handling.
+ */
+
 export interface IValidationService {
   isFormSubmitted(): Promise<boolean>;
   detectValidationErrors(): Promise<IValidationError[]>;
@@ -227,7 +231,6 @@ export class FormProcessingService {
   private async verifyAndUpdateSelectors(
     formFields: FormField[]
   ): Promise<FormField[]> {
-    // Silently verify selectors without logging
     const updatedFields: FormField[] = [];
 
     for (const field of formFields) {
@@ -443,7 +446,7 @@ export class FormProcessingService {
         }
       }
 
-      await this.page.click("body"); // Close dropdown
+      await this.page.click("body"); 
       return [];
     } catch (error) {
       return [];
@@ -489,7 +492,6 @@ private validateFieldInput(
   field: FormField,
   input: string
 ): { isValid: boolean; message?: string } {
-  // First check for required fields
   if (field.required && !input.trim()) {
     return {
       isValid: false,
@@ -497,7 +499,6 @@ private validateFieldInput(
     };
   }
 
-  // If not required and empty, it's valid
   if (!input.trim() && !field.required) {
     return { isValid: true };
   }
@@ -532,7 +533,6 @@ private validateFieldInput(
         };
       }
       
-      // Check for min/max constraints if they exist
       const numValue = Number(input);
       if (field.min !== undefined && numValue < field.min) {
         return {
@@ -557,7 +557,6 @@ private validateFieldInput(
         };
       }
       
-      // Validate actual date
       const date = new Date(input);
       if (isNaN(date.getTime())) {
         return {
@@ -566,7 +565,6 @@ private validateFieldInput(
         };
       }
       
-      // Check min/max date constraints
       if (field.min) {
         const minDate = new Date(field.min);
         if (date < minDate) {
@@ -711,16 +709,6 @@ private validateFieldInput(
         };
       }
       break;
-      // Search fields usually don't have strict validation
-      // but you might want to check for minimum length
-      if (input.length < 2) {
-        return {
-          isValid: false,
-          message: "Search query must be at least 2 characters.",
-        };
-      }
-      break;
-
     case "select":
       if (field.options && field.options.length > 0) {
         const validOption = field.options.some(option => 

@@ -25,12 +25,7 @@ export class OpenAIRepository implements IAIRepository {
 
     Field Type: ${request.fieldType}
     Field Label: ${request.labelText}
-    
-    Examples:
-    - For "First Name": "What's your first name?"
-    - For "Email Address": "What's your email address?"
-    - For "Phone Number": "What's your phone number?"
-    - For "Date of Birth": "What's your date of birth? (Please use MM/DD/YYYY format)"
+  
     
     Generate just the question, no additional text.`;
 
@@ -103,10 +98,7 @@ export class OpenAIRepository implements IAIRepository {
     - Current Value: "${validationError.currentValue}"
     - Error Message: "${validationError.errorMessage}"
     
-    Examples:
-    - For email validation: "I noticed there might be an issue with the email format. Could you please provide your email address again?"
-    - For required field: "It looks like the ${validationError.fieldLabel} field is required. Could you please provide this information?"
-    - For invalid format: "The ${validationError.fieldLabel} format doesn't seem quite right. Could you please try entering it again?"
+
     
     Generate just the question, no additional text.`;
 
