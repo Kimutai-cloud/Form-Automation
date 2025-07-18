@@ -55,7 +55,6 @@ export class OpenAIRepository implements IAIRepository {
 
         const question = response.choices[0]?.message?.content?.trim();
         if (question) {
-          this.logger.info(`Generated question for "${request.labelText}": ${question}`);
           return {
             question,
             success: true
@@ -129,7 +128,6 @@ export class OpenAIRepository implements IAIRepository {
 
         const question = response.choices[0]?.message?.content?.trim();
         if (question) {
-          this.logger.info(`Generated correction question for "${validationError.fieldLabel}": ${question}`);
           return {
             question,
             success: true

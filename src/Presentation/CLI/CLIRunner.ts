@@ -3,11 +3,6 @@ import { FormAutomationConfig } from '../../Application/Interfaces/IFormAutomati
 import { IUserInterface } from '../../Application/Interfaces/IUserInterface';
 import { Logger } from '../../Infrastucture/logging/Logger';
 
-/**
- * CLIRunner class for running the form automation process in a command-line interface.
- * It handles user input, configuration, and displays results.
- */
-
 export class CLIRunner {
   constructor(
     private readonly controller: FormAutomationController,
@@ -16,86 +11,126 @@ export class CLIRunner {
   ) {}
 
   async run(config: FormAutomationConfig): Promise<void> {
-  try {
-    console.log('🚀 Starting Form Automation...');
-    console.log(`📝 Form URL: ${config.url}`);
-    console.log(`🎯 Tone: ${config.tone}`);
-    console.log(`⏱️  Timeout: ${config.timeout}ms`);
-    console.log(`👁️  Headless: ${config.headless}`);
-    console.log('---');
+    try {
+      console.clear(); 
+      console.log('╔════════════════════════════════════════════╗');
+      console.log('║        🤖 AI Form Automation Tool          ║');
+      console.log('╚════════════════════════════════════════════╝');
+      console.log('\n📍 Form URL:', config.url);
+      console.log('🎨 Tone:', config.tone);
+      console.log('⏱️  Timeout:', `${config.timeout}ms`);
+      console.log('🖥️  Mode:', config.headless ? 'Headless' : 'Browser Window');
+      console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    const result = await this.controller.run(config);
+      const result = await this.controller.run(config);
 
-    if (result.success) {
-      console.log('\n✅ Form automation completed successfully!');
-      
-      if (result.submission) {
-        try {
-          console.log('\n📊 Submission Summary:');
-          
-          if (typeof result.submission.toSummary === 'function') {
-            await this.userInterface.showTable(result.submission.toSummary());
-          } else {
-            const summary = {
-              'Status': 'Successfully submitted',
-              'URL': result.submission.url || 'N/A',
-              'Timestamp': result.submission.submissionTime?.toLocaleString() || new Date().toLocaleString()
-            };
-            await this.userInterface.showTable(summary);
+      if (result.success) {
+        console.log('\n╔════════════════════════════════════════════╗');
+        console.log('║     ✅ Form Submitted Successfully! 🎉     ║');
+        console.log('╚════════════════════════════════════════════╝');
+        
+        if (result.submission) {
+          try {
+            if (typeof result.submission.toSummary === 'function') {
+              const summary = result.submission.toSummary();
+              console.log('\n📊 Your Submitted Information:');
+              console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              
+              Object.entries(summary).forEach(([key, value]) => {
+                const displayKey = key.replace(/\*/g, '').trim();
+                console.log(`  ${displayKey}: ${value}`);
+              });
+              
+              console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            }
+          } catch (summaryError) {
+            this.logger.warn('Could not display submission summary:', summaryError);
           }
-        } catch (summaryError) {
-          console.log('📊 Form submitted successfully (summary unavailable)');
-          this.logger.warn('Could not display submission summary:', summaryError);
         }
-      }
-      
-      if (result.submission && result.submission.result) {
-        console.log('\n🎉 Form Submission Result:');
-        console.log(`Status: ${result.submission.result.success ? '✅ Success' : '❌ Failed'}`);
-        console.log(`Message: ${result.submission.result.message || 'No message'}`);
-        console.log(`URL: ${result.submission.result.url || 'No URL'}`);
-        console.log(`Time: ${result.submission.result.timestamp.toLocaleString()}`);
+        
+        if (result.submission?.result?.url) {
+          console.log(`\n🔗 Submission URL: ${result.submission.result.url}`);
+        }
+        
+        console.log('\n✨ Thank you for using the AI Form Automation Tool!');
       } else {
-        console.log('\n🎉 Form submission completed successfully!');
+        console.log('\n╔════════════════════════════════════════════╗');
+        console.log('║      ❌ Form Submission Failed            ║');
+        console.log('╚════════════════════════════════════════════╝');
+        
+        if (result.error) {
+          console.log('\n📝 Error Details:', result.error);
+        }
+        
+        console.log('\n💡 Tips:');
+        console.log('  • Check if the form URL is correct');
+        console.log('  • Ensure all required fields are filled');
+        console.log('  • Try running with headless mode disabled to see what\'s happening');
       }
-    } else {
-      console.log('\n❌ Form automation failed!');
-      console.log(`Error: ${result.error}`);
+    } catch (error) {
+      this.logger.error('CLI execution failed:', error);
+      console.log('\n╔════════════════════════════════════════════╗');
+      console.log('║      💥 Unexpected Error Occurred         ║');
+      console.log('╚════════════════════════════════════════════╝');
+      console.log('\n📝 Error:', error instanceof Error ? error.message : 'Unknown error');
+    } finally {
+      console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      await this.userInterface.close();
     }
-  } catch (error) {
-    this.logger.error('CLI execution failed:', error);
-    console.log('\n💥 Unexpected error occurred!');
-    console.log(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  } finally {
-    await this.userInterface.close();
   }
-}
 
   async getUserConfiguration(): Promise<Partial<FormAutomationConfig>> {
-    console.log('🔧 Configuration Setup');
-    console.log('---');
+    console.clear();
+    console.log('╔════════════════════════════════════════════╗');
+    console.log('║        🤖 AI Form Automation Tool          ║');
+    console.log('╚════════════════════════════════════════════╝');
+    console.log('\n🔧 Let\'s configure your form automation:\n');
 
     const url = await this.userInterface.askQuestion(
-      'Enter form URL (press Enter for default): '
+      '📝 Enter form URL (or press Enter for demo form)'
     );
 
     const toneInput = await this.userInterface.askQuestion(
-      'Choose tone (casual/professional) [professional]: '
+      '🎨 Choose tone - casual or professional (default: professional)'
     );
 
     const headlessInput = await this.userInterface.askQuestion(
-      'Run in headless mode(if false it will open a browser tab)? (true/false) [false]: '
+      '🖥️  Run in background? yes/no (default: no - shows browser)'
     );
 
     const timeoutInput = await this.userInterface.askQuestion(
-      'Timeout in milliseconds [30000]: '
+      '⏱️  Timeout in seconds (default: 30)'
     );
+
+    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     return {
       url: url || undefined,
       tone: (toneInput === 'casual' ? 'casual' : 'professional') as 'casual' | 'professional',
-      headless: headlessInput === 'true',
-      timeout: timeoutInput ? parseInt(timeoutInput) : undefined
+      headless: headlessInput.toLowerCase() === 'yes' || headlessInput.toLowerCase() === 'true',
+      timeout: timeoutInput ? parseInt(timeoutInput) * 1000 : undefined
     };
+  }
+
+  async showWelcome(): Promise<void> {
+    console.clear();
+    console.log('╔════════════════════════════════════════════╗');
+    console.log('║        🤖 AI Form Automation Tool          ║');
+    console.log('╠════════════════════════════════════════════╣');
+    console.log('║                                            ║');
+    console.log('║  This tool will help you fill out forms   ║');
+    console.log('║  automatically using AI-powered questions  ║');
+    console.log('║                                            ║');
+    console.log('║  Features:                                 ║');
+    console.log('║  • 📋 Automatic form field detection       ║');
+    console.log('║  • 🤔 AI-generated conversational questions║');
+    console.log('║  • 🔍 Smart validation error handling      ║');
+    console.log('║  • 📝 Support for all field types          ║');
+    console.log('║  • 🔄 Automatic retry on errors            ║');
+    console.log('║                                            ║');
+    console.log('╚════════════════════════════════════════════╝');
+    console.log('\n💡 Tip: Type "quit" at any time to cancel\n');
+    
+    await new Promise(resolve => setTimeout(resolve, 2000));
   }
 }

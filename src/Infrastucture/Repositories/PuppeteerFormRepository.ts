@@ -4,12 +4,6 @@ import { FormFieldEntity } from '../../Domain/Entities/FormField';
 import { FormSubmissionResult } from '../../Domain/Entities/FormSubmission';
 import { Logger } from '../logging/Logger';
 
-/**
- * Repository for interacting with web forms using Puppeteer.
- * Provides methods to initialize the browser, navigate to pages, extract form fields,
- * fill fields, submit forms, and close the browser.
- */
-
 export class PuppeteerFormRepository implements IFormRepository {
   private browser: Browser | null = null;
   private page: Page | null = null;
@@ -56,171 +50,252 @@ export class PuppeteerFormRepository implements IFormRepository {
     if (!this.page) throw new Error("Browser not initialized");
 
     try {
+      await this.revealHiddenFields();
+
       const fields = await this.page.evaluate(() => {
         const foundFields: any[] = [];
+        const processedSelectors = new Set<string>();
+        const processedRadioGroups = new Set<string>();
 
-        const processInputs = () => {
-          const inputs = document.querySelectorAll("input");
-          inputs.forEach((element: HTMLInputElement) => {
-            if (
-              element.type === "hidden" ||
-              element.disabled ||
-              element.readOnly ||
-              element.style.display === "none" ||
-              element.offsetParent === null
-            ) {
-              return;
-            }
-
-            const fieldData = extractFieldData(element, "input");
-            if (fieldData) foundFields.push(fieldData);
-          });
+        const isDropdownElement = (element: Element): boolean => {
+          if (element.tagName.toLowerCase() === 'select') return true;
+          
+          const classes = element.className || '';
+          const role = element.getAttribute('role') || '';
+          const ariaExpanded = element.getAttribute('aria-expanded');
+          const ariaHaspopup = element.getAttribute('aria-haspopup');
+          
+          return (
+            classes.includes('select') ||
+            classes.includes('dropdown') ||
+            classes.includes('mantine-Select') ||
+            role === 'combobox' ||
+            role === 'listbox' ||
+            ariaExpanded !== null ||
+            ariaHaspopup === 'listbox'
+          );
         };
-
-        const processTextareas = () => {
-          const textareas = document.querySelectorAll("textarea");
-          textareas.forEach((element: HTMLTextAreaElement) => {
-            if (
-              element.disabled ||
-              element.readOnly ||
-              element.style.display === "none" ||
-              element.offsetParent === null
-            ) {
-              return;
-            }
-
-            const fieldData = extractFieldData(element, "textarea");
-            if (fieldData) foundFields.push(fieldData);
-          });
-        };
-
-        const processSelects = () => {
-          const selects = document.querySelectorAll("select");
-          selects.forEach((element: HTMLSelectElement) => {
-            if (
-              element.disabled ||
-              element.style.display === "none" ||
-              element.offsetParent === null
-            ) {
-              return;
-            }
-
-            const fieldData = extractFieldData(element, "select");
-            if (fieldData) foundFields.push(fieldData);
-          });
+        const getDropdownOptionsFromElement = (element: Element): string[] => {
+          const options: string[] = [];
+          
+          if (element.tagName.toLowerCase() === 'select') {
+            const selectEl = element as HTMLSelectElement;
+            Array.from(selectEl.options).forEach(opt => {
+              if (opt.value && opt.text) {
+                options.push(opt.text.trim());
+              }
+            });
+          }
+          
+          return options;
         };
 
         const extractFieldData = (
           element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
           baseType: string
         ) => {
+          const uniqueKey = element.id || element.name || `${element.tagName}-${element.className}`;
+          if (processedSelectors.has(uniqueKey)) return null;
+          processedSelectors.add(uniqueKey);
+
           let label = "";
           let selector = "";
 
           if (element.getAttribute("aria-label")) {
             label = element.getAttribute("aria-label")!;
           } else if (element.id) {
-            const labelElement = document.querySelector(
-              `label[for="${element.id}"]`
-            );
+            const labelElement = document.querySelector(`label[for="${element.id}"]`);
             if (labelElement) {
               label = labelElement.textContent?.trim() || "";
             }
-          } else {
+          }
+
+          if (!label) {
             const parentLabel = element.closest("label");
             if (parentLabel) {
-              const inputValue = (element as HTMLInputElement).value || "";
-              label =
-                parentLabel.textContent?.replace(inputValue, "").trim() || "";
+              label = parentLabel.textContent?.trim() || "";
+              if (element.value) {
+                label = label.replace(element.value, "").trim();
+              }
             }
           }
+
+          if (!label) {
+            const parent = element.parentElement;
+            if (parent) {
+              let prevSibling = element.previousElementSibling;
+              while (prevSibling && !label) {
+                if (prevSibling.tagName === 'LABEL' || prevSibling.tagName === 'SPAN' || prevSibling.tagName === 'DIV') {
+                  const text = prevSibling.textContent?.trim() || "";
+                  if (text && text.length < 100 && !text.includes('\n')) {
+                    label = text;
+                    break;
+                  }
+                }
+                prevSibling = prevSibling.previousElementSibling;
+              }
+
+              if (!label && parent.previousElementSibling) {
+                const parentPrev = parent.previousElementSibling;
+                if (parentPrev.textContent) {
+                  const text = parentPrev.textContent.trim();
+                  if (text && text.length < 100) {
+                    label = text;
+                  }
+                }
+              }
+            }
+          }
+
           if (!label && element.getAttribute("placeholder")) {
             label = element.getAttribute("placeholder")!;
           }
           if (!label && element.getAttribute("name")) {
             label = element.getAttribute("name")!.replace(/[-_]/g, " ");
           }
+
           const selectors: string[] = [];
           const nameAttr = element.getAttribute("name");
           if (nameAttr) selectors.push(`[name="${nameAttr}"]`);
-          if (element.id && !element.id.includes("mantine-"))
-            selectors.push(`#${element.id}`);
+          if (element.id) selectors.push(`#${element.id}`);
 
           const dataTestId = element.getAttribute("data-testid");
           if (dataTestId) selectors.push(`[data-testid="${dataTestId}"]`);
 
-          const dataTest = element.getAttribute("data-test");
-          if (dataTest) selectors.push(`[data-test="${dataTest}"]`);
-
-          if (element.getAttribute("aria-label")) {
-            selectors.push(
-              `[aria-label="${element.getAttribute("aria-label")}"]`
-            );
-          }
-
-          selector =
-            selectors[0] ||
+          selector = selectors[0] || 
             `${baseType}:nth-of-type(${Array.from(document.querySelectorAll(baseType)).indexOf(element) + 1})`;
 
           if (!label || !selector) return null;
 
           let type: string = baseType;
-          if (baseType === "input") {
+          let options: string[] = [];
+          
+          if (isDropdownElement(element)) {
+            type = "select";
+            options = getDropdownOptionsFromElement(element);
+          } else if (baseType === "input") {
             const inputType = (element as HTMLInputElement).type.toLowerCase();
             switch (inputType) {
-              case "email":
-                type = "email";
-                break;
-              case "tel":
-                type = "tel";
-                break;
-              case "number":
-                type = "number";
-                break;
-              case "date":
-                type = "date";
-                break;
-              case "checkbox":
-                type = "checkbox";
-                break;
-              case "radio":
-                type = "radio";
-                break;
-              default:
-                type = "input";
-                break;
+              case "email": type = "email"; break;
+              case "tel": type = "tel"; break;
+              case "number": type = "number"; break;
+              case "date": type = "date"; break;
+              case "checkbox": type = "checkbox"; break;
+              case "radio": type = "radio"; break;
+              default: type = "input"; break;
             }
           }
 
-          const isRequired =
-            element.hasAttribute("required") ||
-            element.getAttribute("aria-required") === "true" ||
-            label.includes("*");
-
-          const placeholder = element.getAttribute("placeholder") || "";
+          const isRequired = element.hasAttribute("required") || 
+                           element.getAttribute("aria-required") === "true" || 
+                           label.includes("*");
 
           return {
             label,
             selector,
             alternativeSelectors: selectors,
-            type: type as
-              | "input"
-              | "textarea"
-              | "select"
-              | "checkbox"
-              | "radio"
-              | "date"
-              | "email"
-              | "number"
-              | "tel",
+            type: type as any,
             required: isRequired,
-            placeholder,
+            placeholder: element.getAttribute("placeholder") || "",
+            options: options.length > 0 ? options : undefined,
           };
         };
 
-        processInputs();
-        processTextareas();
-        processSelects();
+        const allInputs = document.querySelectorAll("input, textarea, select, [role='combobox'], [role='listbox']");
+
+        allInputs.forEach((element: Element) => {
+          const el = element as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+          
+          if (el.type === "hidden" || 
+              (el.style.display === "none" && !isDropdownElement(el))) {
+            return;
+          }
+
+          const tagName = el.tagName.toLowerCase();
+          const fieldData = extractFieldData(el, tagName === 'select' ? 'select' : tagName);
+          if (fieldData) foundFields.push(fieldData);
+        });
+
+        const radioButtons = document.querySelectorAll('input[type="radio"]');
+        const radioGroups = new Map<string, any>();
+
+        radioButtons.forEach((radio: Element) => {
+          const radioEl = radio as HTMLInputElement;
+          const groupName = radioEl.name;
+          
+          if (!groupName || processedRadioGroups.has(groupName)) return;
+          
+          if (!radioGroups.has(groupName)) {
+            let groupLabel = "";
+            const container = radioEl.closest('.form-group, .field, fieldset, div');
+            
+            if (container) {
+              const legend = container.querySelector('legend');
+              if (legend) {
+                groupLabel = legend.textContent?.trim() || "";
+              }
+              
+              if (!groupLabel) {
+                const heading = container.querySelector('label:not([for]), h3, h4, span.label');
+                if (heading) {
+                  groupLabel = heading.textContent?.trim() || "";
+                }
+              }
+              
+              if (!groupLabel && container.previousElementSibling) {
+                const prev = container.previousElementSibling;
+                if (prev.textContent && prev.textContent.trim().length < 100) {
+                  groupLabel = prev.textContent.trim();
+                }
+              }
+            }
+            
+            if (!groupLabel) {
+              groupLabel = groupName.replace(/[-_]/g, " ");
+            }
+            
+            radioGroups.set(groupName, {
+              label: groupLabel,
+              selector: `[name="${groupName}"]`,
+              type: "radio",
+              required: radioEl.hasAttribute("required"),
+              options: [],
+              name: groupName
+            });
+          }
+          const optionLabel = radioEl.parentElement?.textContent?.trim() || 
+                            radioEl.value || 
+                            radioEl.id || "";
+          
+          if (optionLabel) {
+            radioGroups.get(groupName)!.options.push(optionLabel);
+          }
+        });
+
+        radioGroups.forEach((group, name) => {
+          if (!processedRadioGroups.has(name) && group.options.length > 0) {
+            processedRadioGroups.add(name);
+            foundFields.push(group);
+          }
+        });
+
+        const customDropdowns = document.querySelectorAll('.mantine-Select-root, .mantine-MultiSelect-root');
+        customDropdowns.forEach((dropdownRoot: Element) => {
+          const input = dropdownRoot.querySelector('input');
+          const label = dropdownRoot.querySelector('label')?.textContent?.trim() || "";
+          
+          if (input && label && !processedSelectors.has(input.id || label)) {
+            foundFields.push({
+              label,
+              selector: input.id ? `#${input.id}` : `input[placeholder="${input.placeholder}"]`,
+              alternativeSelectors: [],
+              type: "select",
+              required: label.includes("*"),
+              placeholder: input.getAttribute("placeholder") || "",
+              options: [] 
+            });
+          }
+        });
 
         return foundFields;
       });
@@ -234,6 +309,7 @@ export class PuppeteerFormRepository implements IFormRepository {
           field.placeholder
         );
         (entity as any).alternativeSelectors = field.alternativeSelectors;
+        (entity as any).options = field.options;
         return entity;
       });
 
@@ -242,6 +318,30 @@ export class PuppeteerFormRepository implements IFormRepository {
     } catch (error) {
       this.logger.error("Failed to extract form fields:", error);
       throw error;
+    }
+  }
+
+  private async revealHiddenFields(): Promise<void> {
+    try {
+      await this.page?.evaluate(() => {
+        window.scrollTo(0, document.body.scrollHeight);
+        window.scrollTo(0, 0);
+      });
+      await this.delay(500);
+
+      await this.page?.evaluate(() => {
+        const formElements = document.querySelectorAll('input:not([type="hidden"]), select, textarea, [role="combobox"]');
+        formElements.forEach((el: Element) => {
+          try {
+            (el as HTMLElement).focus();
+          } catch (e) {
+          }
+        });
+      });
+      await this.delay(300);
+
+    } catch (error) {
+      this.logger.warn("Could not reveal hidden fields:", error);
     }
   }
 
