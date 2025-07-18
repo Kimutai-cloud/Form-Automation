@@ -1,314 +1,227 @@
-import { IFormAutomation, FormAutomationConfig, FormAutomationResult } from '../../Application/Interfaces/IFormAutomation';
-import { ExtractFormFieldsUseCase } from '../../Application/Use-Cases/ExtractFormFields';
-import { FormProcessingService, IValidationService } from '../../Domain/Services/FromProcessingService';
-import { Logger } from '../../Infrastucture/logging/Logger';
-import { OpenAIRepository } from '../../Infrastucture/Repositories/OpenAIRepository';
-import { ConsoleUserInterface } from '../../Infrastucture/ui/ConsoleUserInterface';
-import { ValidationService } from '../../Domain/Services/ValidationService';
-import { FormUtils } from '../../Domain/Services/FormUtils';
-import { Page } from 'puppeteer';
-import { FormField } from '../../Domain/Entities/FormField';
+import puppeteer, { Browser, Page } from "puppeteer";
+import { IFormRepository } from "../../Domain/Repositories/IFormRepository";
+import { FormProcessingService } from "../../Domain/Services/FromProcessingService";
+import { ConsoleUserInterface } from "../../Infrastucture/ui/ConsoleUserInterface";
+import { Configuration } from "../../Infrastucture/config/Configurations";
+import { FormFieldEntity } from "../../Domain/Entities/FormField";
+import { OpenAIRepository } from "../../Infrastucture/Repositories/OpenAIRepository";
+import { ValidationService } from "../../Domain/Services/ValidationService";
+import { Logger } from "../../Infrastucture/logging/Logger";
+import { FormSubmissionEntity } from '../../Domain/Entities/FormSubmission';
+import { FormAnswerEntity } from '../../Domain/Entities/FormAnswer';
+import {
+  FormAutomationConfig,
+  FormAutomationResult,
+} from "../../Application/Interfaces/IFormAutomation";
 
 /**
- * Controller for managing the form automation process.
- * It orchestrates the use cases for extracting form fields, generating questions,
- * collecting user input, and submitting the form.
+ * Controller for managing form automation tasks.
+ * It initializes the browser, navigates to the form, extracts fields,
+ * processes the form with validation, and handles cleanup.
  */
-export class FormAutomationController implements IFormAutomation {
+
+export class FormAutomationController {
+  private browser: Browser | null = null;
+  private page: Page | null = null;
+  private formRepository: IFormRepository;
   private formProcessingService: FormProcessingService | null = null;
-  private readonly maxRetryAttempts: number = 3;
+  private consoleUI: ConsoleUserInterface;
+  private config: Configuration;
+  private logger: Logger;
+  private openAIRepository: OpenAIRepository;
 
   constructor(
-    private readonly extractFormFieldsUseCase: ExtractFormFieldsUseCase,
-    private readonly openAIRepository: OpenAIRepository,
-    private readonly consoleUI: ConsoleUserInterface,
-    private readonly logger: Logger,
-    private readonly validationService?: IValidationService
-  ) {}
-
-  async execute(config: FormAutomationConfig): Promise<FormAutomationResult> {
-    const startTime = Date.now();
-    
-    try {
-      this.logger.info('🎯 == Starting Enhanced Form Automation Process ==');
-      
-      const { fields, page } = await this.extractAndAnalyzeForm(config);
-      
-      this.initializeFormProcessingService(page);
-      
-      const shouldProceed = await this.presentFormSummaryAndConfirm(fields);
-      if (!shouldProceed) {
-        await page.close();
-        return this.createCancelledResult();
-      }
-
-      const processingResult = await this.processFormWithRetries(fields);
-      
-      const duration = Date.now() - startTime;
-      await page.close();
-      
-      return this.createSuccessResult(processingResult, duration);
-
-    } catch (error) {
-      this.logger.error('❌ Form automation failed:', error);
-      return this.createErrorResult(error);
-    }
+    formRepository: IFormRepository,
+    openAIRepository: OpenAIRepository,
+    consoleUI: ConsoleUserInterface,
+    config: Configuration,
+    logger: Logger
+  ) {
+    this.formRepository = formRepository;
+    this.openAIRepository = openAIRepository;
+    this.consoleUI = consoleUI;
+    this.config = config;
+    this.logger = logger;
   }
 
-  private async extractAndAnalyzeForm(config: FormAutomationConfig): Promise<{fields: FormField[], page: Page}> {
-    this.logger.info('📋 Extracting and analyzing form fields...');
+  async run(automationConfig?: FormAutomationConfig): Promise<FormAutomationResult> {
+  try {
+    console.log('🚀 Starting Enhanced Form Automation with Validation...\n');
     
-    const extractResult = await this.extractFormFieldsUseCase.execute({
-      url: config.url,
-      timeout: config.timeout || 30000,
-      headless: config.headless ?? true
+    await this.initializeBrowser(automationConfig?.headless ?? this.config.headlessMode);
+    
+    const formUrl = automationConfig?.url || this.config.defaultFormUrl;
+    console.log(`📋 Navigating to form: ${formUrl}`);
+    
+    await this.page!.goto(formUrl, { 
+      waitUntil: 'networkidle2',
+      timeout: automationConfig?.timeout || this.config.formTimeout
+    });
+    
+    console.log('🔍 Analyzing form fields...');
+    
+    // Initialize the form repository with the page
+    await this.formRepository.initialize(automationConfig?.headless ?? this.config.headlessMode);
+    await this.formRepository.navigateToPage(formUrl, automationConfig?.timeout);
+    
+    const formFields = await this.formRepository.extractFormFields();
+    
+    if (formFields.length === 0) {
+      console.log('❌ No form fields found on the page.');
+      return {
+        submission: null as any,
+        success: false,
+        error: 'No form fields found on the page'
+      };
+    }
+    
+    console.log(`✅ Found ${formFields.length} form fields:`);
+    formFields.forEach(field => {
+      console.log(`  - ${field.label} (${field.type})`);
+    });
+    
+    this.initializeFormProcessingService();
+    
+    
+    const formFieldsForProcessing = formFields.map(field => field.toObject());
+    
+    
+    const success = await this.formProcessingService!.processFormWithValidationEnhanced(formFieldsForProcessing);
+    
+    if (success) {
+      console.log('\n🎉 Form processing completed successfully!');
+      
+      
+      const cachedResponses = this.formProcessingService!.getCachedResponses();
+      const answers: FormAnswerEntity[] = [];
+      
+      for (const [fieldName, value] of cachedResponses) {
+        const answer = FormAnswerEntity.create(fieldName, value, fieldName);
+        answers.push(answer);
+      }
+      
+      const submission = FormSubmissionEntity.create(answers, this.page!.url());
+      
+      const submissionWithResult = submission.withResult({
+        success: true,
+        timestamp: new Date(),
+        url: this.page!.url(),
+        message: 'Form submitted successfully'
+      });
+      
+      return {
+        submission: submissionWithResult,
+        success: true
+      };
+    } else {
+      console.log('\n❌ Form processing failed or was incomplete.');
+      
+      const submission = FormSubmissionEntity.create([], this.page!.url());
+      const submissionWithResult = submission.withResult({
+        success: false,
+        timestamp: new Date(),
+        url: this.page!.url(),
+        message: 'Form processing failed or was incomplete'
+      });
+      
+      return {
+        submission: submissionWithResult,
+        success: false,
+        error: 'Form processing failed or was incomplete'
+      };
+    }
+
+  } catch (error) {
+    console.error('❌ Error in form automation:', error);
+    this.logger.error('Form automation error:', error);
+    
+    return {
+      submission: null as any,
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  } finally {
+    await this.cleanup();
+  }
+}
+
+  private async initializeBrowser(headless: boolean = true): Promise<void> {
+    console.log("🌐 Launching browser...");
+
+    this.browser = await puppeteer.launch({
+      headless: headless,
+      defaultViewport: null,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-accelerated-2d-canvas",
+        "--no-first-run",
+        "--no-zygote",
+        "--disable-gpu",
+      ],
     });
 
-    if (!extractResult.success || !extractResult.fields || !extractResult.page) {
-      throw new Error(`Form extraction failed: ${extractResult.error || 'Unknown error'}`);
-    }
+    this.page = await this.browser.newPage();
 
-    const fields = extractResult.fields;
-    const page = extractResult.page;
+    await this.page.setViewport({ width: 1280, height: 720 });
 
-    this.logger.info(`✅ Extracted ${fields.length} form fields from ${config.url}`);
-    
-    const summary = FormUtils.generateFieldSummary(fields);
-    const accessibility = FormUtils.analyzeAccessibility(fields);
-    const estimatedTime = FormUtils.estimateCompletionTime(fields);
+    await this.page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    );
 
-    this.logger.info(`📊 Form Analysis:
-      - Complexity: ${summary.complexity}
-      - Total Fields: ${summary.totalFields} (${summary.requiredFields} required)
-      - Estimated Time: ${Math.ceil(estimatedTime / 60)} minutes
-      - Accessibility Score: ${accessibility.score}/100`);
-
-    if (accessibility.issues.length > 0) {
-      this.logger.warn('⚠️  Accessibility Issues Detected:');
-      accessibility.issues.forEach(issue => this.logger.warn(`  - ${issue}`));
-    }
-
-    return { fields, page };
+    console.log("✅ Browser initialized successfully");
   }
 
-  private initializeFormProcessingService(page: Page): void {
-    const validationService = this.validationService || new ValidationService(page);
-    
+  private initializeFormProcessingService(): void {
+    if (!this.page) {
+      throw new Error("Page not initialized");
+    }
+
+    const validationService = new ValidationService(this.page);
+
     this.formProcessingService = new FormProcessingService(
-      page,
+      this.page,
       this.openAIRepository,
       this.consoleUI,
       validationService
     );
 
-    this.logger.info('🔧 Form processing service initialized');
+    console.log("🔧 FormProcessingService initialized");
   }
 
-  private async presentFormSummaryAndConfirm(fields: FormField[]): Promise<boolean> {
-    const summary = FormUtils.generateFieldSummary(fields);
-    const estimatedTime = FormUtils.estimateCompletionTime(fields);
-
-    console.log('\n📋 Form Summary:');
-    console.log(`   Total Fields: ${summary.totalFields}`);
-    console.log(`   Required Fields: ${summary.requiredFields}`);
-    console.log(`   Optional Fields: ${summary.optionalFields}`);
-    console.log(`   Field Types: ${Object.entries(summary.fieldTypes).map(([type, count]) => `${type}(${count})`).join(', ')}`);
-    console.log(`   Estimated Time: ${Math.ceil(estimatedTime / 60)} minutes`);
-    console.log(`   Complexity: ${summary.complexity}`);
-
-    const shouldProceed = await this.consoleUI.askQuestion(
-      '\n🤔 Would you like to proceed with filling out this form? (yes/no):'
-    );
-
-    const proceed = ['yes', 'y', 'true', '1'].includes(shouldProceed.toLowerCase().trim());
-    
-    if (!proceed) {
-      this.logger.info('❌ User chose not to proceed with form automation');
-    }
-    
-    return proceed;
+  private async delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  private async processFormWithRetries(fields: FormField[]): Promise<boolean> {
-    if (!this.formProcessingService) {
-      throw new Error('FormProcessingService not initialized');
+  private async cleanup(): Promise<void> {
+    console.log("🧹 Cleaning up resources...");
+
+    if (this.page) {
+      await this.page.close();
+      this.page = null;
     }
 
-    let attempt = 0;
-    let lastError: Error | null = null;
-
-    while (attempt < this.maxRetryAttempts) {
-      attempt++;
-      
-      try {
-        this.logger.info(`🔄 Processing attempt ${attempt}/${this.maxRetryAttempts}`);
-        
-        if (attempt > 1) {
-          console.log('\n🔄 Retrying form processing with previous responses cached...');
-        }
-
-        const success = await this.formProcessingService.processFormWithValidation(fields);
-        
-        if (success) {
-          this.logger.info('✅ Form processing completed successfully');
-          return true;
-        } else {
-          throw new Error('Form processing failed without specific error');
-        }
-
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        this.logger.error(`❌ Attempt ${attempt} failed:`, lastError.message);
-
-        if (attempt < this.maxRetryAttempts) {
-          const shouldRetry = await this.askUserForRetry(attempt, lastError);
-          if (!shouldRetry) {
-            this.logger.info('❌ User chose not to retry');
-            break;
-          }
-          
-          await FormUtils.delay(2000);
-        }
-      }
+    if (this.browser) {
+      await this.browser.close();
+      this.browser = null;
     }
 
-    throw lastError || new Error('Form processing failed after maximum retry attempts');
+    await this.consoleUI.close();
+    console.log("✅ Cleanup completed");
   }
 
-  private async askUserForRetry(attempt: number, error: Error): Promise<boolean> {
-    const remainingAttempts = this.maxRetryAttempts - attempt;
-    
-    console.log(`\n⚠️  Form processing failed: ${error.message}`);
-    console.log(`🔄 ${remainingAttempts} attempt(s) remaining.`);
-    
-    const retryResponse = await this.consoleUI.askQuestion(
-      'Would you like to retry? (yes/no):'
-    );
-
-    return ['yes', 'y', 'true', '1'].includes(retryResponse.toLowerCase().trim());
+  async handleShutdown(): Promise<void> {
+    console.log("\n🛑 Received shutdown signal...");
+    await this.cleanup();
+    process.exit(0);
   }
 
-  private createSuccessResult(success: boolean, duration: number): FormAutomationResult {
-    if (success) {
-      this.logger.info(`✅ Form automation completed successfully in ${Math.ceil(duration / 1000)} seconds`);
-      return {
-        submission: {
-          success: true,
-          timestamp: new Date(),
-          duration: duration,
-          attempts: 1 
-        } as any,
-        success: true
-      };
-    } else {
-      return {
-        submission: {
-          success: false,
-          timestamp: new Date(),
-          duration: duration,
-          error: 'Form processing completed but submission may have failed'
-        } as any,
-        success: false,
-        error: 'Form processing completed but submission status unclear'
-      };
-    }
+  public getPage(): Page | null {
+    return this.page;
   }
 
-  private createCancelledResult(): FormAutomationResult {
-    return {
-      submission: null as any,
-      success: false,
-      error: 'Form automation cancelled by user'
-    };
-  }
-
-  private createErrorResult(error: any): FormAutomationResult {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    
-    return {
-      submission: {
-        success: false,
-        timestamp: new Date(),
-        error: errorMessage
-      } as any,
-      success: false,
-      error: errorMessage
-    };
-  }
-
-
-  private validateConfig(config: FormAutomationConfig): void {
-    if (!config.url) {
-      throw new Error('URL is required for form automation');
-    }
-
-    if (!config.url.startsWith('http://') && !config.url.startsWith('https://')) {
-      throw new Error('URL must be a valid HTTP/HTTPS URL');
-    }
-
-    if (config.timeout && config.timeout < 5000) {
-      throw new Error('Timeout must be at least 5000ms');
-    }
-  }
-
-
-  public getCachedResponses(): Map<string, string> | null {
-    return this.formProcessingService?.getCachedResponses() || null;
-  }
-
-  
-  public clearCache(): void {
-    this.formProcessingService?.clearResponseCache();
-  }
-
-  async executeWithValidation(config: FormAutomationConfig): Promise<FormAutomationResult> {
-    try {
-      this.validateConfig(config);
-      return await this.execute(config);
-    } catch (error) {
-      this.logger.error('❌ Configuration validation failed:', error);
-      return this.createErrorResult(error);
-    }
-  }
-
-  async executeWithProgress(
-    config: FormAutomationConfig,
-    progressCallback?: (stage: string, progress: number) => void
-  ): Promise<FormAutomationResult> {
-    const progress = (stage: string, percent: number) => {
-      this.logger.info(`📊 ${stage}: ${percent}%`);
-      progressCallback?.(stage, percent);
-    };
-
-    try {
-      progress('Initializing', 0);
-      
-      progress('Extracting form fields', 20);
-      const { fields, page } = await this.extractAndAnalyzeForm(config);
-      
-      progress('Setting up form processor', 40);
-      this.initializeFormProcessingService(page);
-      
-      progress('Awaiting user confirmation', 50);
-      const shouldProceed = await this.presentFormSummaryAndConfirm(fields);
-      if (!shouldProceed) {
-        await page.close();
-        return this.createCancelledResult();
-      }
-
-      progress('Processing form', 60);
-      const processingResult = await this.processFormWithRetries(fields);
-      
-      progress('Completing automation', 100);
-      await page.close();
-      
-      const duration = Date.now() - Date.now(); 
-      return this.createSuccessResult(processingResult, duration);
-
-    } catch (error) {
-      progress('Error occurred', -1);
-      this.logger.error('❌ Form automation failed:', error);
-      return this.createErrorResult(error);
-    }
+  public isInitialized(): boolean {
+    return this.browser !== null && this.page !== null;
   }
 }

@@ -1,11 +1,11 @@
+import { Page } from 'puppeteer';
 import { IFormRepository } from '../../Domain/Repositories/IFormRepository';
 import { FormFieldEntity } from '../../Domain/Entities/FormField';
 import { FormProcessingService } from '../../Domain/Services/FromProcessingService';
 
 /**
- * Use case for extracting form fields from a given URL.
- * It initializes the repository, navigates to the page, extracts fields,
- * validates them, and generates a summary.
+ * Request and response interfaces for extracting form fields from a webpage.
+ * This use case handles the extraction of form fields, validation, and summary generation.
  */
 export interface ExtractFormFieldsRequest {
   url: string;
@@ -17,7 +17,7 @@ export interface ExtractFormFieldsResponse {
   fields: FormFieldEntity[];
   summary: Record<string, any>;
   success: boolean;
-  page?: any; 
+  page?: Page;
   error?: string;
 }
 
@@ -30,35 +30,34 @@ export class ExtractFormFieldsUseCase {
   async execute(request: ExtractFormFieldsRequest): Promise<ExtractFormFieldsResponse> {
     try {
       await this.formRepository.initialize(request.headless ?? true);
-      
       await this.formRepository.navigateToPage(request.url, request.timeout);
-      
+
       const rawFields = await this.formRepository.extractFormFields();
-    
       const validFields = this.formProcessingService.validateFormFields(rawFields);
-      
+
       if (validFields.length === 0) {
         return {
           fields: [],
           summary: {},
           success: false,
-          error: 'No valid form fields found on the page'
+          error: 'No valid form fields found on the page',
         };
       }
-      
+
       const summary = this.formProcessingService.generateFieldSummary(validFields);
-      
+
       return {
         fields: validFields,
         summary,
-        success: true
+        success: true,
+        page: this.formRepository.getPage(), 
       };
     } catch (error) {
       return {
         fields: [],
         summary: {},
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred'
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
       };
     }
   }

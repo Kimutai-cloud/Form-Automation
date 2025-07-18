@@ -1,88 +1,87 @@
-import { Configuration } from './Infrastucture/config/Configurations';
-import { Logger } from './Infrastucture/logging/Logger';
-import { PuppeteerFormRepository } from './Infrastucture/Repositories/PuppeteerFormRepository';
-import { OpenAIRepository } from './Infrastucture/Repositories/OpenAIRepository';
-import { ConsoleUserInterface } from './Infrastucture/ui/ConsoleUserInterface';
-
-import { FormProcessingService } from './Domain/Services/FromProcessingService';
-import { QuestionGenerationService } from './Domain/Services/QuestionGenerationService';
-
-import { ExtractFormFieldsUseCase } from './Application/Use-Cases/ExtractFormFields';
-import { GenerateQuestionsUseCase } from './Application/Use-Cases/GenerateQuestions';
-import { CollectUserInputUseCase } from './Application/Use-Cases/CollectUserInput';
-import { SubmitFormUseCase } from './Application/Use-Cases/SubmitForm';
-
-import { FormAutomationController } from './Presentation/controllers/FormAutomationController';
-import { CLIRunner } from './Presentation/CLI/CLIRunner';
-import { FormAutomationConfig } from './Application/Interfaces/IFormAutomation';
-
+import { FormAutomationController } from "./Presentation/controllers/FormAutomationController";
+import { PuppeteerFormRepository } from "./Infrastucture/Repositories/PuppeteerFormRepository";
+import { OpenAIRepository } from "./Infrastucture/Repositories/OpenAIRepository";
+import { FormProcessingService } from "./Domain/Services/FromProcessingService";
+import { ConsoleUserInterface } from "./Infrastucture/ui/ConsoleUserInterface";
+import { Configuration } from "./Infrastucture/config/Configurations";
+import { Logger } from "./Infrastucture/logging/Logger";
+import { ExtractFormFieldsUseCase } from "./Application/Use-Cases/ExtractFormFields";
+import { QuestionGenerationService } from "./Domain/Services/QuestionGenerationService"; 
+import { FormAutomationConfig } from "./Application/Interfaces/IFormAutomation";
+import { CLIRunner } from "./Presentation/CLI/CLIRunner";
+import * as fs from "fs";
 import dotenv from 'dotenv';
+import path from 'path';
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-/**
- * Main entry point for the AI Form Automation application.
- * It initializes the configuration, repositories, services, use cases, and controller,
- */
+
+const screenshotsDir = "./screenshots";
+if (!fs.existsSync(screenshotsDir)) {
+  fs.mkdirSync(screenshotsDir, { recursive: true });
+}
 
 async function main(): Promise<void> {
-  // Initialize configuration
+  console.log("🤖  Form Automation");
+  console.log("This tool will:");
+  console.log("1. 📋 Extract form fields from the webpage");
+  console.log("2. 🤔 Generate conversational questions using AI");
+  console.log("3. 📝 Fill out the form with your responses");
+  console.log("4. 🔍 Detect validation errors automatically");
+  console.log("5. 🔄 Ask for corrections and retry submission");
+  console.log("6. ✅ Complete the form successfully");
+  console.log();
+
   const config = new Configuration();
- 
-  // Initialize logger
   const logger = new Logger(config.logLevel);
-  
+
   // Initialize repositories
   const formRepository = new PuppeteerFormRepository(logger);
   const aiRepository = new OpenAIRepository(config.openaiApiKey, logger);
   const userInterface = new ConsoleUserInterface();
-  
-  // Initialize domain services
-  const formProcessingService = new FormProcessingService();
-  const questionGenerationService = new QuestionGenerationService();
-  
-  // Initialize use cases
-  const extractFormFieldsUseCase = new ExtractFormFieldsUseCase(
-    formRepository,
-    formProcessingService
-  );
-  
-  const generateQuestionsUseCase = new GenerateQuestionsUseCase(
-    aiRepository,
-    questionGenerationService
-  );
-  
-  const collectUserInputUseCase = new CollectUserInputUseCase(
-    userInterface,
-    formProcessingService
-  );
-  
-  const submitFormUseCase = new SubmitFormUseCase(
-    formRepository,
-    formProcessingService
-  );
-  
-  // Initialize controller
+  const questionGenerationService = new QuestionGenerationService(); 
+
   const controller = new FormAutomationController(
-    extractFormFieldsUseCase,
-    generateQuestionsUseCase,
-    collectUserInputUseCase,
-    submitFormUseCase,
-    formProcessingService,
-    logger
+    formRepository,     
+    aiRepository,        
+    userInterface,       
+    config,             
+    logger              
   );
-  
-  // Initialize CLI runner
+
   const cliRunner = new CLIRunner(controller, userInterface, logger);
-  
+
+  const handleShutdown = async () => {
+    console.log("\n🛑 Shutting down...");
+    try {
+      await userInterface.close();
+      await formRepository.close();
+      console.log("✅ Cleanup completed");
+    } catch (error) {
+      console.error("❌ Error during cleanup:", error);
+    }
+    process.exit(0);
+  };
+
+  process.on("SIGINT", handleShutdown);
+  process.on("SIGTERM", handleShutdown);
+
+  process.on("uncaughtException", async (error) => {
+    console.error("💥 Uncaught Exception:", error);
+    await handleShutdown();
+  });
+
+  process.on("unhandledRejection", async (reason, promise) => {
+    console.error("💥 Unhandled Rejection at:", promise, "reason:", reason);
+    await handleShutdown();
+  });
+
   try {
     console.log('🤖 AI Form Automation Tool');
     console.log('===========================');
     
-    // Get user configuration
     const userConfig = await cliRunner.getUserConfiguration();
     
-    // Create final configuration
     const automationConfig: FormAutomationConfig = {
       url: userConfig.url || config.defaultFormUrl,
       tone: userConfig.tone || 'professional',
@@ -90,7 +89,6 @@ async function main(): Promise<void> {
       headless: userConfig.headless ?? config.headlessMode
     };
     
-    // Run automation
     await cliRunner.run(automationConfig);
     
   } catch (error) {
@@ -100,12 +98,9 @@ async function main(): Promise<void> {
   }
 }
 
-// Execute if run directly
 if (require.main === module) {
-  main().catch(error => {
-    console.error('Unhandled error:', error);
+  main().catch((error) => {
+    console.error("💥 Application startup failed:", error);
     process.exit(1);
   });
 }
-
-export { main };

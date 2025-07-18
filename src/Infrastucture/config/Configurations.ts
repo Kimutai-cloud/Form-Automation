@@ -1,12 +1,15 @@
 import { z } from 'zod';
 import dotenv from 'dotenv';
+import path from 'path';
+
+delete process.env.OPENAI_API_KEY;
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 /**
  * Configuration class for managing application settings.
  * It validates environment variables using Zod and provides access to configuration values.
  */
 
-dotenv.config();
 
 const ConfigSchema = z.object({
   OPENAI_API_KEY: z.string().min(1, 'OpenAI API key is required'),

@@ -12,10 +12,6 @@ export class OpenAIRepository implements IAIRepository {
   private readonly retryDelay = 1000;
 
   constructor(apiKey: string, private readonly logger: Logger) {
-    if (!apiKey || !apiKey.startsWith('sk-')) {
-      throw new Error('Invalid OpenAI API key format');
-    }
-    
     this.openai = new OpenAI({ 
       apiKey,
       timeout: 10000, 
