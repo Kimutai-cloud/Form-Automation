@@ -446,7 +446,7 @@ export class FormProcessingService {
         }
       }
 
-      await this.page.click("body"); 
+      await this.page.click("body");
       return [];
     } catch (error) {
       return [];
@@ -488,263 +488,310 @@ export class FormProcessingService {
     };
   }
 
-private validateFieldInput(
-  field: FormField,
-  input: string
-): { isValid: boolean; message?: string } {
-  if (field.required && !input.trim()) {
-    return {
-      isValid: false,
-      message: "This field is required. Please provide a value.",
-    };
-  }
+  private validateFieldInput(
+    field: FormField,
+    input: string
+  ): { isValid: boolean; message?: string } {
+    if (field.required && !input.trim()) {
+      return {
+        isValid: false,
+        message: "This field is required. Please provide a value.",
+      };
+    }
 
-  if (!input.trim() && !field.required) {
+    if (!input.trim() && !field.required) {
+      return { isValid: true };
+    }
+
+    switch (field.type) {
+      case "email":
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(input)) {
+          return {
+            isValid: false,
+            message:
+              "Please provide a valid email address (e.g., name@example.com).",
+          };
+        }
+        break;
+
+      case "tel":
+        const cleanPhone = input.replace(/[\s\-\(\)\.]/g, "");
+
+        const phonePatterns = [
+          /^[\+]?[1-9]\d{1,14}$/,
+          /^0[1-9]\d{8,9}$/,
+          /^\d{10,11}$/,
+          /^(\+\d{1,3}[- ]?)?\d{10}$/,
+        ];
+
+        const isValidPhone = phonePatterns.some((pattern) =>
+          pattern.test(cleanPhone)
+        );
+
+        if (!isValidPhone) {
+          return {
+            isValid: false,
+            message:
+              "Please provide a valid phone number (e.g., +254701452662, 0701452662, or 701452662).",
+          };
+        }
+        break;
+
+      case "number":
+        if (isNaN(Number(input))) {
+          return {
+            isValid: false,
+            message: "Please provide a valid number.",
+          };
+        }
+
+        const numValue = Number(input);
+        if (field.min !== undefined && numValue < field.min) {
+          return {
+            isValid: false,
+            message: `Number must be at least ${field.min}.`,
+          };
+        }
+        if (field.max !== undefined && numValue > field.max) {
+          return {
+            isValid: false,
+            message: `Number must be at most ${field.max}.`,
+          };
+        }
+        break;
+
+      case "date":
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(input)) {
+          return {
+            isValid: false,
+            message: "Please use format: YYYY-MM-DD (e.g., 2024-03-15)",
+          };
+        }
+
+        const date = new Date(input);
+        if (isNaN(date.getTime())) {
+          return {
+            isValid: false,
+            message: "Please provide a valid date.",
+          };
+        }
+
+        if (field.min) {
+          const minDate = new Date(field.min);
+          if (date < minDate) {
+            return {
+              isValid: false,
+              message: `Date must be on or after ${field.min}.`,
+            };
+          }
+        }
+        if (field.max) {
+          const maxDate = new Date(field.max);
+          if (date > maxDate) {
+            return {
+              isValid: false,
+              message: `Date must be on or before ${field.max}.`,
+            };
+          }
+        }
+        break;
+
+      case "datetime-local":
+        const datetimeRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+        if (!datetimeRegex.test(input)) {
+          return {
+            isValid: false,
+            message:
+              "Please use format: YYYY-MM-DDTHH:mm (e.g., 2024-03-15T14:30)",
+          };
+        }
+
+        const datetime = new Date(input);
+        if (isNaN(datetime.getTime())) {
+          return {
+            isValid: false,
+            message: "Please provide a valid date and time.",
+          };
+        }
+        break;
+
+      case "time":
+        const timeRegex = /^([01]?\d|2[0-3]):[0-5]\d$/;
+        if (!timeRegex.test(input)) {
+          return {
+            isValid: false,
+            message: "Please use 24-hour format: HH:mm (e.g., 14:30)",
+          };
+        }
+        break;
+
+      case "month":
+        const monthRegex = /^\d{4}-\d{2}$/;
+        if (!monthRegex.test(input)) {
+          return {
+            isValid: false,
+            message: "Please use format: YYYY-MM (e.g., 2024-03)",
+          };
+        }
+
+        const [year, month] = input.split("-").map(Number);
+        if (month < 1 || month > 12) {
+          return {
+            isValid: false,
+            message: "Month must be between 01 and 12.",
+          };
+        }
+        break;
+
+      case "week":
+        const weekRegex = /^\d{4}-W\d{2}$/;
+        if (!weekRegex.test(input)) {
+          return {
+            isValid: false,
+            message: "Please use format: YYYY-W## (e.g., 2024-W12)",
+          };
+        }
+
+        const weekNum = parseInt(input.split("-W")[1]);
+        if (weekNum < 1 || weekNum > 53) {
+          return {
+            isValid: false,
+            message: "Week number must be between 01 and 53.",
+          };
+        }
+        break;
+
+      case "color":
+        const hexColorRegex = /^#[0-9A-Fa-f]{6}$/;
+        const colorNames = [
+          "red",
+          "green",
+          "blue",
+          "yellow",
+          "black",
+          "white",
+          "purple",
+          "orange",
+          "pink",
+          "gray",
+          "grey",
+          "brown",
+          "cyan",
+          "magenta",
+          "lime",
+          "navy",
+          "olive",
+          "teal",
+        ];
+
+        if (
+          !hexColorRegex.test(input) &&
+          !colorNames.includes(input.toLowerCase())
+        ) {
+          return {
+            isValid: false,
+            message:
+              "Please use a color name (e.g., 'red') or hex format (e.g., '#FF0000')",
+          };
+        }
+        break;
+
+      case "url":
+        try {
+          const url = new URL(
+            input.startsWith("http") ? input : `https://${input}`
+          );
+          if (!["http:", "https:"].includes(url.protocol)) {
+            throw new Error("Invalid protocol");
+          }
+        } catch (e) {
+          return {
+            isValid: false,
+            message: "Please provide a valid URL (e.g., https://example.com)",
+          };
+        }
+        break;
+
+      case "range":
+        const rangeValue = Number(input);
+        if (isNaN(rangeValue)) {
+          return {
+            isValid: false,
+            message: "Please provide a numeric value.",
+          };
+        }
+
+        const min = field.min ?? 0;
+        const max = field.max ?? 100;
+
+        if (rangeValue < min || rangeValue > max) {
+          return {
+            isValid: false,
+            message: `Please provide a value between ${min} and ${max}.`,
+          };
+        }
+        break;
+
+      case "checkbox":
+      case "radio":
+        const validBooleanInputs = [
+          "true",
+          "false",
+          "yes",
+          "no",
+          "1",
+          "0",
+          "on",
+          "off",
+          "checked",
+          "unchecked",
+        ];
+        if (!validBooleanInputs.includes(input.toLowerCase())) {
+          return {
+            isValid: false,
+            message: "Please enter: yes/no, true/false, or 1/0",
+          };
+        }
+        break;
+      case "select":
+        if (field.options && field.options.length > 0) {
+          const validOption = field.options.some(
+            (option) =>
+              option.toLowerCase() === input.toLowerCase() ||
+              option.toLowerCase().includes(input.toLowerCase())
+          );
+
+          if (!validOption) {
+            return {
+              isValid: false,
+              message: `Please select one of the available options: ${field.options.slice(0, 5).join(", ")}${field.options.length > 5 ? "..." : ""}`,
+            };
+          }
+        }
+        break;
+
+      default:
+        if (field.minLength && input.length < field.minLength) {
+          return {
+            isValid: false,
+            message: `This field requires at least ${field.minLength} characters.`,
+          };
+        }
+
+        if (field.maxLength && input.length > field.maxLength) {
+          return {
+            isValid: false,
+            message: `This field allows a maximum of ${field.maxLength} characters.`,
+          };
+        }
+
+        break;
+    }
+
     return { isValid: true };
   }
-
-  switch (field.type) {
-    case "email":
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(input)) {
-        return {
-          isValid: false,
-          message: "Please provide a valid email address (e.g., name@example.com).",
-        };
-      }
-      break;
-
-    case "tel":
-      const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
-      const cleanPhone = input.replace(/\s|-|\(|\)/g, "");
-      if (!phoneRegex.test(cleanPhone)) {
-        return {
-          isValid: false,
-          message: "Please provide a valid phone number (e.g., +1234567890 or 1234567890).",
-        };
-      }
-      break;
-
-    case "number":
-      if (isNaN(Number(input))) {
-        return { 
-          isValid: false, 
-          message: "Please provide a valid number." 
-        };
-      }
-      
-      const numValue = Number(input);
-      if (field.min !== undefined && numValue < field.min) {
-        return {
-          isValid: false,
-          message: `Number must be at least ${field.min}.`
-        };
-      }
-      if (field.max !== undefined && numValue > field.max) {
-        return {
-          isValid: false,
-          message: `Number must be at most ${field.max}.`
-        };
-      }
-      break;
-
-    case "date":
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(input)) {
-        return {
-          isValid: false,
-          message: "Please use format: YYYY-MM-DD (e.g., 2024-03-15)",
-        };
-      }
-      
-      const date = new Date(input);
-      if (isNaN(date.getTime())) {
-        return {
-          isValid: false,
-          message: "Please provide a valid date.",
-        };
-      }
-      
-      if (field.min) {
-        const minDate = new Date(field.min);
-        if (date < minDate) {
-          return {
-            isValid: false,
-            message: `Date must be on or after ${field.min}.`
-          };
-        }
-      }
-      if (field.max) {
-        const maxDate = new Date(field.max);
-        if (date > maxDate) {
-          return {
-            isValid: false,
-            message: `Date must be on or before ${field.max}.`
-          };
-        }
-      }
-      break;
-
-    case "datetime-local":
-      const datetimeRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
-      if (!datetimeRegex.test(input)) {
-        return {
-          isValid: false,
-          message: "Please use format: YYYY-MM-DDTHH:mm (e.g., 2024-03-15T14:30)",
-        };
-      }
-      
-      const datetime = new Date(input);
-      if (isNaN(datetime.getTime())) {
-        return {
-          isValid: false,
-          message: "Please provide a valid date and time.",
-        };
-      }
-      break;
-
-    case "time":
-      const timeRegex = /^([01]?\d|2[0-3]):[0-5]\d$/;
-      if (!timeRegex.test(input)) {
-        return {
-          isValid: false,
-          message: "Please use 24-hour format: HH:mm (e.g., 14:30)",
-        };
-      }
-      break;
-
-    case "month":
-      const monthRegex = /^\d{4}-\d{2}$/;
-      if (!monthRegex.test(input)) {
-        return {
-          isValid: false,
-          message: "Please use format: YYYY-MM (e.g., 2024-03)",
-        };
-      }
-      
-      const [year, month] = input.split('-').map(Number);
-      if (month < 1 || month > 12) {
-        return {
-          isValid: false,
-          message: "Month must be between 01 and 12.",
-        };
-      }
-      break;
-
-    case "week":
-      const weekRegex = /^\d{4}-W\d{2}$/;
-      if (!weekRegex.test(input)) {
-        return {
-          isValid: false,
-          message: "Please use format: YYYY-W## (e.g., 2024-W12)",
-        };
-      }
-      
-      const weekNum = parseInt(input.split('-W')[1]);
-      if (weekNum < 1 || weekNum > 53) {
-        return {
-          isValid: false,
-          message: "Week number must be between 01 and 53.",
-        };
-      }
-      break;
-
-    case "color":
-      const hexColorRegex = /^#[0-9A-Fa-f]{6}$/;
-      const colorNames = [
-        'red', 'green', 'blue', 'yellow', 'black', 'white', 
-        'purple', 'orange', 'pink', 'gray', 'grey', 'brown',
-        'cyan', 'magenta', 'lime', 'navy', 'olive', 'teal'
-      ];
-      
-      if (!hexColorRegex.test(input) && !colorNames.includes(input.toLowerCase())) {
-        return {
-          isValid: false,
-          message: "Please use a color name (e.g., 'red') or hex format (e.g., '#FF0000')",
-        };
-      }
-      break;
-
-    case "url":
-      try {
-        const url = new URL(input.startsWith('http') ? input : `https://${input}`);
-        if (!['http:', 'https:'].includes(url.protocol)) {
-          throw new Error('Invalid protocol');
-        }
-      } catch (e) {
-        return {
-          isValid: false,
-          message: "Please provide a valid URL (e.g., https://example.com)",
-        };
-      }
-      break;
-
-    case "range":
-      const rangeValue = Number(input);
-      if (isNaN(rangeValue)) {
-        return {
-          isValid: false,
-          message: "Please provide a numeric value.",
-        };
-      }
-      
-      const min = field.min ?? 0;
-      const max = field.max ?? 100;
-      
-      if (rangeValue < min || rangeValue > max) {
-        return {
-          isValid: false,
-          message: `Please provide a value between ${min} and ${max}.`,
-        };
-      }
-      break;
-
-    case "checkbox":
-    case "radio":
-      const validBooleanInputs = ['true', 'false', 'yes', 'no', '1', '0', 'on', 'off', 'checked', 'unchecked'];
-      if (!validBooleanInputs.includes(input.toLowerCase())) {
-        return {
-          isValid: false,
-          message: "Please enter: yes/no, true/false, or 1/0",
-        };
-      }
-      break;
-    case "select":
-      if (field.options && field.options.length > 0) {
-        const validOption = field.options.some(option => 
-          option.toLowerCase() === input.toLowerCase() ||
-          option.toLowerCase().includes(input.toLowerCase())
-        );
-        
-        if (!validOption) {
-          return {
-            isValid: false,
-            message: `Please select one of the available options: ${field.options.slice(0, 5).join(', ')}${field.options.length > 5 ? '...' : ''}`,
-          };
-        }
-      }
-      break;
-
-    default:
-      if (field.minLength && input.length < field.minLength) {
-        return {
-          isValid: false,
-          message: `This field requires at least ${field.minLength} characters.`,
-        };
-      }
-      
-      if (field.maxLength && input.length > field.maxLength) {
-        return {
-          isValid: false,
-          message: `This field allows a maximum of ${field.maxLength} characters.`,
-        };
-      }
-      
-      break;
-  }
-
-  return { isValid: true };
-}
 
   private buildFieldContext(field: FormField): string {
     const contexts = [];
@@ -928,7 +975,7 @@ private validateFieldInput(
       case "checkbox":
       case "select":
         await this.fillDropdownField(element, value, field.label);
-      break;
+        break;
       case "password":
         await element.focus();
         await element.evaluate((el: Element) => {
@@ -1061,40 +1108,40 @@ private validateFieldInput(
         break;
       default:
         await element.focus();
-    
+
         const hasDatalist = await element.evaluate((el: Element) => {
-        const input = el as HTMLInputElement;
-        return !!input.list;
-      });
-      
-      if (hasDatalist) {
-        await element.evaluate((el: Element) => {
           const input = el as HTMLInputElement;
-          input.value = "";
+          return !!input.list;
         });
-        await element.type(value, { delay: 100 });
-        
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
+
+        if (hasDatalist) {
+          await element.evaluate((el: Element) => {
+            const input = el as HTMLInputElement;
+            input.value = "";
+          });
+          await element.type(value, { delay: 100 });
+
+          await new Promise((resolve) => setTimeout(resolve, 300));
+
           try {
             const optionSelector = `option[value="${value}"]`;
             const option = await this.page.$(optionSelector);
             if (option) {
               await option.click();
             }
-          } catch (error) {}}
-          else{
-            await element.focus();
-            await this.page.keyboard.down("Control");
-            await this.page.keyboard.press("KeyA");
-            await this.page.keyboard.up("Control");
-            await element.type(value, { delay: 50 });
-          }
-       break;
-      }
-      await element.evaluate((el: Element) => {
-    el.dispatchEvent(new Event('blur', { bubbles: true }));
-  });
+          } catch (error) {}
+        } else {
+          await element.focus();
+          await this.page.keyboard.down("Control");
+          await this.page.keyboard.press("KeyA");
+          await this.page.keyboard.up("Control");
+          await element.type(value, { delay: 50 });
+        }
+        break;
+    }
+    await element.evaluate((el: Element) => {
+      el.dispatchEvent(new Event("blur", { bubbles: true }));
+    });
   }
 
   private async findWorkingSelector(field: FormField): Promise<string | null> {
@@ -1394,9 +1441,15 @@ private validateFieldInput(
       'input[type="submit"]',
       'button:contains("Submit")',
       'button:contains("Send")',
+      'button:contains("Next")',
+      'button:contains("Continue")',
       ".submit-btn",
       "#submit",
       '[data-testid="submit"]',
+      'button[class*="submit"]',
+      'button[class*="Submit"]',
+      '[role="button"][class*="submit"]',
+      '[role="button"][class*="Submit"]',
     ];
 
     for (const selector of submitSelectors) {
@@ -1404,38 +1457,76 @@ private validateFieldInput(
         const btn = await this.page.$(selector);
         if (btn && (await this.isElementVisible(btn))) {
           await btn.click();
+          console.log(`Clicked submit button with selector: ${selector}`);
           return;
         }
       } catch (error) {
         continue;
       }
     }
-
     const buttons = await this.page.$$("button");
     for (const button of buttons) {
       const text = await button.evaluate(
         (el) => el.textContent?.toLowerCase() || ""
       );
+      const className = await button.evaluate((el) =>
+        el.className.toLowerCase()
+      );
+
       if (
-        ["submit", "send", "continue", "save", "next"].some((keyword) =>
-          text.includes(keyword)
+        [
+          "submit",
+          "send",
+          "continue",
+          "save",
+          "next",
+          "finish",
+          "complete",
+        ].some(
+          (keyword) => text.includes(keyword) || className.includes(keyword)
         )
       ) {
         if (await this.isElementVisible(button)) {
-          await button.click();
-          return;
+          const buttonPosition = await button.evaluate((el) => {
+            const rect = el.getBoundingClientRect();
+            const windowHeight = window.innerHeight;
+            return rect.top / windowHeight;
+          });
+
+          if (buttonPosition > 0.5) {
+            await button.click();
+            console.log(`Clicked button with text: "${text}"`);
+            return;
+          }
         }
       }
     }
 
-    await this.page.evaluate(() => {
-      const form = document.querySelector("form");
-      if (form) {
-        form.submit();
-      } else {
-        throw new Error("No form found to submit");
-      }
-    });
+    try {
+      await this.page.evaluate(() => {
+        const form = document.querySelector("form");
+        if (form) {
+          form.submit();
+        } else {
+          const allButtons = Array.from(
+            document.querySelectorAll("button:not([disabled])")
+          );
+          const visibleButtons = allButtons.filter((btn) => {
+            const style = window.getComputedStyle(btn);
+            return style.display !== "none" && style.visibility !== "hidden";
+          });
+
+          if (visibleButtons.length > 0) {
+            (visibleButtons[visibleButtons.length - 1] as HTMLElement).click();
+          } else {
+            throw new Error("No submit button or form found");
+          }
+        }
+      });
+    } catch (error) {
+      console.log("Could not find a way to submit the form");
+      throw error;
+    }
   }
 
   private async isElementVisible(element: any): Promise<boolean> {
